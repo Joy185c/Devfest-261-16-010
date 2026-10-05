@@ -3,7 +3,11 @@ import { translations } from './data/translations';
 import { validateBuildingData } from './utils/validator';
 import { calculateShortestPath } from './utils/dijkstra';
 import BuildingMap from './components/BuildingMap';
-import { Upload, AlertTriangle, RotateCcw, ArrowRight } from 'lucide-react';
+import { 
+  Upload, Map as MapIcon, AlertTriangle, RotateCcw, 
+  CheckCircle2, Sun, Shield, ShieldCheck, ArrowRight, 
+  MousePointer2, Ban, Unplug, Lock, ChevronRight, X, Code
+} from 'lucide-react';
 
 function App() {
   const [lang, setLang] = useState('en');
@@ -15,10 +19,17 @@ function App() {
   const [selectedStart, setSelectedStart] = useState(null);
   const [routeData, setRouteData] = useState({ path: null, cost: null, error: null });
   const [importError, setImportError] = useState(null);
+  
+  const [interactionMode, setInteractionMode] = useState('select');
+
+  // Modal State
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [importTab, setImportTab] = useState('file'); // 'file' | 'paste'
+  const [pastedJson, setPastedJson] = useState('');
+  const [pasteResult, setPasteResult] = useState({ valid: false, error: null, parsed: null });
 
   const fileInputRef = useRef(null);
 
-  // Recalculate route whenever hazards or start node changes
   useEffect(() => {
     if (buildingData && selectedStart) {
       const result = calculateShortestPath(buildingData, selectedStart, hazards);
@@ -27,6 +38,26 @@ function App() {
       setRouteData({ path: null, cost: null, error: null });
     }
   }, [selectedStart, hazards, buildingData]);
+
+  const commitImportedData = (json) => {
+    setBuildingData(json);
+    const initHazards = {
+      blockedNodes: [...json.initial_state.blocked_nodes],
+      blockedEdges: [...json.initial_state.blocked_edges],
+      closedExits: [...json.initial_state.closed_exits]
+    };
+    setInitialHazards(initHazards);
+    setHazards(JSON.parse(JSON.stringify(initHazards))); 
+    setSelectedStart(null);
+    setRouteData({ path: null, cost: null, error: null });
+    setImportError(null);
+    setInteractionMode('select');
+    setIsModalOpen(false);
+    
+    // Reset paste state
+    setPastedJson('');
+    setPasteResult({ valid: false, error: null, parsed: null });
+  };
 
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
@@ -37,29 +68,42 @@ function App() {
       try {
         const json = JSON.parse(event.target.result);
         validateBuildingData(json);
-        
-        setBuildingData(json);
-        const initHazards = {
-          blockedNodes: [...json.initial_state.blocked_nodes],
-          blockedEdges: [...json.initial_state.blocked_edges],
-          closedExits: [...json.initial_state.closed_exits]
-        };
-        setInitialHazards(initHazards);
-        setHazards(JSON.parse(JSON.stringify(initHazards))); // deep copy
-        setSelectedStart(null);
-        setRouteData({ path: null, cost: null, error: null });
-        setImportError(null);
+        commitImportedData(json);
       } catch (err) {
-        setImportError(t.invalidFile);
+        setImportError(t.invalidFile || "Invalid file format or validation failed.");
+        setIsModalOpen(false);
       }
     };
     reader.readAsText(file);
     e.target.value = null;
   };
 
-  const handleNodeClick = (node) => {
-    if (node.type === 'exit') return; // Cannot start at exit
-    setSelectedStart(node.id);
+  const handleValidateJson = () => {
+    if (!pastedJson.trim()) {
+      setPasteResult({ valid: false, error: "JSON is empty.", parsed: null });
+      return;
+    }
+    
+    try {
+      const json = JSON.parse(pastedJson);
+      validateBuildingData(json);
+      setPasteResult({ valid: true, error: null, parsed: json });
+    } catch (err) {
+      // Trying to get approximate location for parse errors
+      let errMsg = err.message;
+      setPasteResult({ valid: false, error: errMsg, parsed: null });
+    }
+  };
+
+  const handleClearJson = () => {
+    setPastedJson('');
+    setPasteResult({ valid: false, error: null, parsed: null });
+  };
+
+  const handleImportJson = () => {
+    if (pasteResult.valid && pasteResult.parsed) {
+      commitImportedData(pasteResult.parsed);
+    }
   };
 
   const handleReset = () => {
@@ -68,14 +112,31 @@ function App() {
     }
   };
 
+  const handleNodeClick = (node) => {
+    if (interactionMode === 'select') {
+      if (node.type === 'exit') return; 
+      setSelectedStart(node.id);
+    } else if (interactionMode === 'blockNode') {
+      if (node.type === 'exit') return;
+      toggleNodeBlock(node.id);
+    } else if (interactionMode === 'closeExit') {
+      if (node.type !== 'exit') return;
+      toggleExitClose(node.id);
+    }
+  };
+
+  const handleEdgeClick = (edge) => {
+    if (interactionMode === 'blockEdge') {
+      toggleEdgeBlock(edge.id);
+    }
+  };
+
   const toggleNodeBlock = (nodeId) => {
     setHazards(prev => {
       const isBlocked = prev.blockedNodes.includes(nodeId);
       return {
         ...prev,
-        blockedNodes: isBlocked 
-          ? prev.blockedNodes.filter(id => id !== nodeId)
-          : [...prev.blockedNodes, nodeId]
+        blockedNodes: isBlocked ? prev.blockedNodes.filter(id => id !== nodeId) : [...prev.blockedNodes, nodeId]
       };
     });
   };
@@ -85,9 +146,7 @@ function App() {
       const isBlocked = prev.blockedEdges.includes(edgeId);
       return {
         ...prev,
-        blockedEdges: isBlocked 
-          ? prev.blockedEdges.filter(id => id !== edgeId)
-          : [...prev.blockedEdges, edgeId]
+        blockedEdges: isBlocked ? prev.blockedEdges.filter(id => id !== edgeId) : [...prev.blockedEdges, edgeId]
       };
     });
   };
@@ -97,191 +156,391 @@ function App() {
       const isClosed = prev.closedExits.includes(exitId);
       return {
         ...prev,
-        closedExits: isClosed 
-          ? prev.closedExits.filter(id => id !== exitId)
-          : [...prev.closedExits, exitId]
+        closedExits: isClosed ? prev.closedExits.filter(id => id !== exitId) : [...prev.closedExits, exitId]
       };
     });
   };
 
+  const getStatusInfo = () => {
+    if (importError) return { type: 'error', title: "Error", desc: importError };
+    if (!buildingData) return { type: 'neutral', title: "Awaiting Import", desc: "Please upload a building.json file" };
+    if (routeData.error === 'noRoute') return { type: 'error', title: t.noRoute, desc: t.noRouteDesc };
+    if (routeData.error === 'blockedStart') return { type: 'error', title: t.startBlocked, desc: t.startBlockedDesc };
+    if (routeData.path) return { type: 'success', title: t.routeFound, desc: t.routeFoundDesc };
+    return { type: 'neutral', title: "Ready", desc: "Select a start point to begin" };
+  };
+
+  const status = getStatusInfo();
+
   return (
     <div className="app-container">
+      {/* Header */}
       <header className="header">
-        <h1>{t.appTitle}</h1>
-        <div className="lang-toggle">
-          <button className={`lang-btn ${lang === 'bn' ? 'active' : ''}`} onClick={() => setLang('bn')}>বাংলা</button>
-          <button className={`lang-btn ${lang === 'en' ? 'active' : ''}`} onClick={() => setLang('en')}>English</button>
+        <div className="header-left">
+          <ShieldCheck size={36} className="logo-icon" />
+          <div className="header-titles">
+            <h1>{t.appTitle}</h1>
+            <p>{t.appSubtitle}</p>
+          </div>
+        </div>
+        <div className="header-right">
+          <div className="lang-toggle">
+            <button className={`lang-btn ${lang === 'en' ? 'active' : ''}`} onClick={() => setLang('en')}>English</button>
+            <button className={`lang-btn ${lang === 'bn' ? 'active' : ''}`} onClick={() => setLang('bn')}>বাংলা</button>
+          </div>
+          <button className="theme-toggle">
+            <Sun size={20} />
+          </button>
         </div>
       </header>
 
       <main className="main-content">
-        <section className="map-container">
-          {!buildingData ? (
-            <div style={{ color: 'var(--text-muted)' }}>
-              {t.importFile}
+        {/* Left Sidebar */}
+        <aside className="left-sidebar">
+          <div className="card import-box" onClick={() => setIsModalOpen(true)}>
+            <div className="import-icon"><Upload size={20} /></div>
+            <div className="import-text">
+              <h3>{t.importBuilding}</h3>
+              <p>{t.uploadJson}</p>
             </div>
-          ) : (
-            <BuildingMap 
-              buildingData={buildingData} 
-              hazards={hazards} 
-              selectedStart={selectedStart}
-              onNodeClick={handleNodeClick}
-              routePath={routeData.path}
-            />
-          )}
-        </section>
+            <ChevronRight size={16} style={{ marginLeft: 'auto', color: 'var(--text-light)' }} />
+          </div>
 
-        <aside className="sidebar">
-          {/* Import Panel */}
-          <div className="panel">
-            <input 
-              type="file" 
-              accept=".json" 
-              ref={fileInputRef} 
-              onChange={handleFileUpload} 
-              style={{ display: 'none' }} 
-            />
-            <button className="import-btn" onClick={() => fileInputRef.current?.click()}>
-              <Upload size={20} />
-              {t.importFile}
-            </button>
-            {importError && (
-              <div className="import-error">
-                <AlertTriangle size={16} style={{ display: 'inline', marginRight: '0.5rem', verticalAlign: 'text-bottom' }}/>
-                {importError}
+          <div className="nav-menu">
+            <button className="nav-item active"><MapIcon size={18} /> {t.map}</button>
+            <button className="nav-item"><AlertTriangle size={18} /> {t.hazards}</button>
+            <button className="nav-item" onClick={handleReset}><RotateCcw size={18} /> {t.reset}</button>
+          </div>
+
+          <div className="legend-section card">
+            <h4 className="legend-title">{t.nodeTypes}</h4>
+            <div className="legend-list">
+              <div className="legend-item">
+                <svg width="20" height="20"><circle cx="10" cy="10" r="8" fill="var(--node-room-bg)" stroke="var(--node-room-stroke)" strokeWidth="2"/></svg>
+                {t.room}
+              </div>
+              <div className="legend-item">
+                <svg width="20" height="20"><polygon points="10,2 18,10 10,18 2,10" fill="var(--node-junc-bg)" stroke="var(--node-junc-stroke)" strokeWidth="2"/></svg>
+                {t.junction}
+              </div>
+              <div className="legend-item">
+                <svg width="20" height="20"><rect x="2" y="2" width="16" height="16" rx="4" fill="var(--node-exit-bg)"/></svg>
+                {t.exit}
+              </div>
+            </div>
+
+            <h4 className="legend-title" style={{marginTop: '1rem'}}>{t.states}</h4>
+            <div className="legend-list">
+              <div className="legend-item">
+                <svg width="20" height="20"><circle cx="10" cy="10" r="8" fill="#e2e8f0"/></svg>
+                {t.normal}
+              </div>
+              <div className="legend-item">
+                <svg width="20" height="20">
+                  <circle cx="10" cy="10" r="8" fill="#fee2e2" stroke="#ef4444"/>
+                  <path d="M7 7 l6 6 M13 7 l-6 6" stroke="#ef4444" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+                {t.blocked}
+              </div>
+              <div className="legend-item">
+                <svg width="20" height="20"><rect x="2" y="2" width="16" height="16" rx="4" fill="var(--node-closed-bg)"/></svg>
+                {t.closed}
+              </div>
+              <div className="legend-item">
+                <svg width="20" height="20">
+                  <circle cx="10" cy="10" r="9" fill="none" stroke="#8b5cf6" strokeWidth="2" strokeDasharray="3"/>
+                </svg>
+                {t.selectedStart}
+              </div>
+              <div className="legend-item">
+                <div style={{width: '20px', height: '4px', background: 'var(--accent-green)', borderRadius: '2px'}}></div>
+                {t.routePath}
+              </div>
+              <div className="legend-item">
+                <div style={{width: '20px', height: '4px', background: '#cbd5e1', borderRadius: '2px'}}></div>
+                {t.edgeCorridor}
+              </div>
+            </div>
+          </div>
+
+          <div className="sidebar-footer">
+            <Shield size={24} className="logo-icon" />
+            <div>
+              <h4>{t.appTitle}</h4>
+              <p>{t.thinkPlanBeSafe}</p>
+            </div>
+          </div>
+        </aside>
+
+        {/* Center Area */}
+        <section className="center-area">
+          {buildingData && (
+            <div className="status-bar-top success">
+              <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
+                <CheckCircle2 size={18} /> {t.buildingLoaded}
+              </div>
+              <div className="status-bar-top-right">
+                <span>{t.building}: {buildingData.building}</span>
+                <span>{t.nodes}: {buildingData.nodes.length}</span>
+                <span>{t.edges}: {buildingData.edges.length}</span>
+              </div>
+            </div>
+          )}
+
+          <div className="map-wrapper">
+            {buildingData ? (
+              <BuildingMap 
+                buildingData={buildingData} 
+                hazards={hazards} 
+                selectedStart={selectedStart}
+                routePath={routeData.path}
+                onNodeClick={handleNodeClick}
+                onEdgeClick={handleEdgeClick}
+              />
+            ) : (
+              <div style={{display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-light)'}}>
+                {t.uploadJson}
               </div>
             )}
           </div>
 
-          {buildingData && (
-            <>
-              {/* Route Info Panel */}
-              <div className="panel">
-                <h2 className="panel-title">{t.currentRoute}</h2>
-                
-                {routeData.error === 'blockedStart' && (
-                  <div className="alert-message alert-error">
-                    <AlertTriangle size={18} />
-                    {t.blockedStart}
-                  </div>
-                )}
-                
-                {routeData.error === 'noRoute' && (
-                  <div className="alert-message alert-error">
-                    <AlertTriangle size={18} />
-                    {t.noRoute}
-                  </div>
-                )}
+          <div className="action-bar-bottom">
+            <div className={`action-card ${interactionMode === 'select' ? 'active' : ''}`} onClick={() => setInteractionMode('select')}>
+              <div className="action-icon" style={{color: 'var(--blue)'}}><MousePointer2 size={24}/></div>
+              <div className="action-text">
+                <h4>{t.selectStart}</h4>
+                <p>{t.selectStartDesc}</p>
+              </div>
+            </div>
+            <div className={`action-card ${interactionMode === 'blockNode' ? 'active' : ''}`} onClick={() => setInteractionMode('blockNode')}>
+              <div className="action-icon" style={{color: 'var(--danger)'}}><Ban size={24}/></div>
+              <div className="action-text">
+                <h4>{t.blockNode}</h4>
+                <p>{t.blockNodeDesc}</p>
+              </div>
+            </div>
+            <div className={`action-card ${interactionMode === 'blockEdge' ? 'active' : ''}`} onClick={() => setInteractionMode('blockEdge')}>
+              <div className="action-icon" style={{color: 'var(--warning)'}}><Unplug size={24}/></div>
+              <div className="action-text">
+                <h4>{t.blockCorridor}</h4>
+                <p>{t.blockCorridorDesc}</p>
+              </div>
+            </div>
+            <div className={`action-card ${interactionMode === 'closeExit' ? 'active' : ''}`} onClick={() => setInteractionMode('closeExit')}>
+              <div className="action-icon" style={{color: 'var(--text-muted)'}}><Lock size={24}/></div>
+              <div className="action-text">
+                <h4>{t.closeExit}</h4>
+                <p>{t.closeExitDesc}</p>
+              </div>
+            </div>
+          </div>
+        </section>
 
-                {!selectedStart && !routeData.error && (
-                  <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-                    {t.selectStart}
-                  </div>
-                )}
+        {/* Right Sidebar */}
+        <aside className="right-sidebar">
+          <div className="card">
+            <div className="panel-header">
+              <MapIcon size={20} />
+              {t.routeInfo}
+            </div>
 
-                {routeData.path && (
-                  <div className="route-info">
-                    <div className="route-stat">
-                      <span>{t.start}</span>
-                      <span>{routeData.path[0]}</span>
-                    </div>
-                    <div className="route-stat">
-                      <span>{t.exit}</span>
-                      <span>{routeData.path[routeData.path.length - 1]}</span>
-                    </div>
-                    <div className="route-stat">
-                      <span>{t.totalCost}</span>
-                      <span style={{ color: 'var(--success)' }}>{routeData.cost}</span>
-                    </div>
-                    
-                    <div className="route-path">
-                      <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>{t.path}</span>
-                      <div className="path-nodes">
-                        {routeData.path.map((node, i) => (
-                          <React.Fragment key={i}>
-                            <span className="path-node">{node}</span>
-                            {i < routeData.path.length - 1 && <ArrowRight size={14} className="path-arrow" />}
-                          </React.Fragment>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
+            <div className="route-endpoints">
+              <div className="endpoint">
+                <span className="endpoint-label">{t.start}</span>
+                <div className="endpoint-circle start">
+                  <span>{routeData.path ? routeData.path[0] : '-'}</span>
+                  <span>{t.room}</span>
+                </div>
+              </div>
+              <ArrowRight size={24} className="endpoint-arrow" />
+              <div className="endpoint">
+                <span className="endpoint-label">{t.exit}</span>
+                <div className="endpoint-circle exit">
+                  <span>{routeData.path ? routeData.path[routeData.path.length-1] : '-'}</span>
+                  <span>{t.exit}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="path-section">
+              <div className="path-title">{t.path}</div>
+              <div className="path-nodes">
+                {routeData.path ? routeData.path.map((nodeId, idx) => {
+                  const node = buildingData.nodes.find(n => n.id === nodeId);
+                  const typeClass = node.type === 'room' ? 'room' : node.type === 'junction' ? 'junc' : 'exit';
+                  return (
+                    <React.Fragment key={idx}>
+                      <span className={`path-pill ${typeClass}`}>{nodeId}</span>
+                      {idx < routeData.path.length - 1 && <ArrowRight size={14} style={{color: 'var(--text-light)'}}/>}
+                    </React.Fragment>
+                  );
+                }) : (
+                  <span style={{color: 'var(--text-light)'}}>-</span>
                 )}
               </div>
+            </div>
 
-              {/* Hazard Controls Panel */}
-              <div className="panel" style={{ flex: 1 }}>
-                <h2 className="panel-title">{t.hazards}</h2>
-                
-                <div style={{ marginBottom: '1.5rem' }}>
-                  <h3 style={{ fontSize: '0.875rem', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>{t.blockedNodes}</h3>
-                  <div className="hazard-list">
-                    {buildingData.nodes.filter(n => n.type !== 'exit').map(node => {
-                      const isBlocked = hazards.blockedNodes.includes(node.id);
-                      return (
-                        <div key={node.id} className="hazard-item">
-                          <span>{node.id} <span style={{fontSize: '0.75rem', color: 'var(--text-muted)'}}>({node.type === 'room' ? t.room : t.junction})</span></span>
-                          <button 
-                            className={`hazard-btn ${isBlocked ? 'btn-unblock' : 'btn-block'}`}
-                            onClick={() => toggleNodeBlock(node.id)}
-                          >
-                            {isBlocked ? t.unblock : t.block}
-                          </button>
-                        </div>
-                      );
-                    })}
+            <div className="cost-section">
+              <span className="cost-title">{t.totalCost}</span>
+              <span className="cost-value">{routeData.cost !== null ? routeData.cost : '-'}</span>
+            </div>
+          </div>
+
+          <div className="card">
+            <div className="panel-header">
+              <AlertTriangle size={20} />
+              {t.hazardControls}
+            </div>
+
+            <div className="hazard-group">
+              <div className="hazard-title">{t.blockedNodes}</div>
+              <div className="hazard-list-box">
+                {hazards.blockedNodes.length === 0 ? (
+                  <div className="hazard-item-row">
+                    <span className="hazard-badge none">{t.none}</span>
                   </div>
-                </div>
-
-                <div style={{ marginBottom: '1.5rem' }}>
-                  <h3 style={{ fontSize: '0.875rem', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>{t.blockedCorridors}</h3>
-                  <div className="hazard-list">
-                    {buildingData.edges.map(edge => {
-                      const isBlocked = hazards.blockedEdges.includes(edge.id);
-                      return (
-                        <div key={edge.id} className="hazard-item">
-                          <span>{edge.from} ↔ {edge.to}</span>
-                          <button 
-                            className={`hazard-btn ${isBlocked ? 'btn-unblock' : 'btn-block'}`}
-                            onClick={() => toggleEdgeBlock(edge.id)}
-                          >
-                            {isBlocked ? t.unblock : t.block}
-                          </button>
-                        </div>
-                      );
-                    })}
+                ) : hazards.blockedNodes.map(id => (
+                  <div key={id} className="hazard-item-row">
+                    <span className="hazard-badge blocked">{id}</span>
+                    <button className="btn-small" onClick={() => toggleNodeBlock(id)}>{t.unblock}</button>
                   </div>
-                </div>
-
-                <div style={{ marginBottom: '1.5rem' }}>
-                  <h3 style={{ fontSize: '0.875rem', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>{t.closedExits}</h3>
-                  <div className="hazard-list">
-                    {buildingData.nodes.filter(n => n.type === 'exit').map(exit => {
-                      const isClosed = hazards.closedExits.includes(exit.id);
-                      return (
-                        <div key={exit.id} className="hazard-item">
-                          <span>{exit.id}</span>
-                          <button 
-                            className={`hazard-btn ${isClosed ? 'btn-reopen' : 'btn-close'}`}
-                            onClick={() => toggleExitClose(exit.id)}
-                          >
-                            {isClosed ? t.reopen : t.close}
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <button className="reset-btn" onClick={handleReset}>
-                  <RotateCcw size={16} style={{ display: 'inline', marginRight: '0.5rem', verticalAlign: 'text-bottom' }} />
-                  {t.reset}
-                </button>
+                ))}
               </div>
-            </>
-          )}
+            </div>
+
+            <div className="hazard-group">
+              <div className="hazard-title">{t.blockedCorridors}</div>
+              <div className="hazard-list-box">
+                {hazards.blockedEdges.length === 0 ? (
+                  <div className="hazard-item-row">
+                    <span className="hazard-badge none">{t.none}</span>
+                  </div>
+                ) : hazards.blockedEdges.map(id => (
+                  <div key={id} className="hazard-item-row">
+                    <span className="hazard-badge blocked">{id}</span>
+                    <button className="btn-small" onClick={() => toggleEdgeBlock(id)}>{t.unblock}</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="hazard-group">
+              <div className="hazard-title">{t.closedExits}</div>
+              <div className="hazard-list-box">
+                {hazards.closedExits.length === 0 ? (
+                  <div className="hazard-item-row">
+                    <span className="hazard-badge none">{t.none}</span>
+                  </div>
+                ) : hazards.closedExits.map(id => (
+                  <div key={id} className="hazard-item-row">
+                    <span className="hazard-badge closed">{id}</span>
+                    <button className="btn-small" onClick={() => toggleExitClose(id)}>{t.reopen}</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <button className="btn-reset" onClick={handleReset}>
+              <RotateCcw size={18} />
+              {t.reset}
+            </button>
+          </div>
+
+          <div className={`status-card ${status.type}`}>
+            {status.type === 'success' ? <CheckCircle2 size={24} color="var(--accent-green)" /> : 
+             status.type === 'error' ? <AlertTriangle size={24} color="var(--danger)" /> :
+             <CheckCircle2 size={24} color="var(--text-muted)" />}
+            <div className="status-text">
+              <h4>{status.title}</h4>
+              <p>{status.desc}</p>
+            </div>
+          </div>
         </aside>
       </main>
+
+      {/* Import Modal */}
+      {isModalOpen && (
+        <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title"><Upload size={20}/> {t.importBuildingData}</h2>
+              <button className="modal-close" onClick={() => setIsModalOpen(false)}><X size={24}/></button>
+            </div>
+            
+            <div className="modal-tabs">
+              <button 
+                className={`modal-tab ${importTab === 'file' ? 'active' : ''}`}
+                onClick={() => setImportTab('file')}
+              >
+                <Upload size={16} style={{display:'inline', marginRight:'0.5rem', verticalAlign:'text-bottom'}}/> 
+                {t.uploadFile}
+              </button>
+              <button 
+                className={`modal-tab ${importTab === 'paste' ? 'active' : ''}`}
+                onClick={() => setImportTab('paste')}
+              >
+                <Code size={16} style={{display:'inline', marginRight:'0.5rem', verticalAlign:'text-bottom'}}/> 
+                {t.pasteJson}
+              </button>
+            </div>
+
+            <div className="modal-body">
+              {importTab === 'file' ? (
+                <div style={{textAlign: 'center', padding: '2rem 0'}}>
+                  <p style={{color: 'var(--text-muted)', marginBottom: '1.5rem'}}>Select a .json file containing the building data.</p>
+                  <input type="file" accept=".json" ref={fileInputRef} onChange={handleFileUpload} style={{ display: 'none' }} />
+                  <button className="btn-primary" style={{margin: '0 auto'}} onClick={() => fileInputRef.current?.click()}>
+                    <Upload size={18} /> Select File
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <textarea 
+                    className="json-textarea" 
+                    placeholder={t.pastePlaceholder}
+                    value={pastedJson}
+                    onChange={(e) => {
+                      setPastedJson(e.target.value);
+                      setPasteResult({ valid: false, error: null, parsed: null });
+                    }}
+                  />
+                  
+                  {pasteResult.error && (
+                    <div className="validation-error">
+                      <strong>Validation Error:</strong><br/>
+                      {pasteResult.error}
+                    </div>
+                  )}
+
+                  {pasteResult.valid && pasteResult.parsed && (
+                    <>
+                      <div className="validation-success">
+                        <CheckCircle2 size={18}/> {t.validJson}
+                      </div>
+                      <div className="json-preview-box">
+                        {JSON.stringify(pasteResult.parsed, null, 2)}
+                      </div>
+                    </>
+                  )}
+
+                  <div className="modal-actions">
+                    <button className="btn-secondary" onClick={handleClearJson}>{t.clear}</button>
+                    {!pasteResult.valid ? (
+                      <button className="btn-primary" onClick={handleValidateJson}>
+                        {t.validateJson}
+                      </button>
+                    ) : (
+                      <button className="btn-primary" onClick={handleImportJson}>
+                        <CheckCircle2 size={18}/> {t.importJson}
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

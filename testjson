@@ -1,0 +1,69 @@
+{
+  "building": "Smart Escape Test Building",
+  "nodes": [
+    { "id": "Entrance", "type": "room", "x": 100, "y": 100, "label": "Entrance" },
+    { "id": "Lobby", "type": "junction", "x": 250, "y": 100, "label": "Lobby" },
+    { "id": "Room-A", "type": "room", "x": 400, "y": 100, "label": "Room A" },
+    { "id": "Room-B", "type": "room", "x": 550, "y": 100, "label": "Room B" },
+    { "id": "Room-C", "type": "room", "x": 700, "y": 100, "label": "Room C" },
+    { "id": "Corridor-1", "type": "junction", "x": 250, "y": 200, "label": "Corridor 1" },
+    { "id": "Stair-A", "type": "junction", "x": 150, "y": 300, "label": "Stair A" },
+    { "id": "Stair-B", "type": "junction", "x": 350, "y": 300, "label": "Stair B" },
+    { "id": "Exit-1", "type": "exit", "x": 100, "y": 400, "label": "Exit 1" },
+    { "id": "Exit-2", "type": "exit", "x": 400, "y": 400, "label": "Exit 2" },
+    
+    { "id": "Floor2-Corridor", "type": "junction", "x": 250, "y": 500, "label": "Floor 2 Corridor" },
+    { "id": "Room-D", "type": "room", "x": 400, "y": 500, "label": "Room D" },
+    { "id": "Room-E", "type": "room", "x": 550, "y": 500, "label": "Room E" },
+    { "id": "Room-F", "type": "room", "x": 700, "y": 500, "label": "Room F" },
+    { "id": "Stair-C", "type": "junction", "x": 250, "y": 650, "label": "Stair C" },
+    { "id": "Exit-3", "type": "exit", "x": 100, "y": 650, "label": "Exit 3" },
+
+    { "id": "Floor3-Corridor", "type": "junction", "x": 250, "y": 800, "label": "Floor 3 Corridor" },
+    { "id": "Room-G", "type": "room", "x": 400, "y": 800, "label": "Room G" },
+    { "id": "Room-H", "type": "room", "x": 550, "y": 800, "label": "Room H" },
+    { "id": "Room-I", "type": "room", "x": 700, "y": 800, "label": "Room I" },
+    { "id": "Exit-4", "type": "exit", "x": 250, "y": 950, "label": "Exit 4" }
+  ],
+  "edges": [
+    { "id": "Entrance-Lobby", "from": "Entrance", "to": "Lobby", "cost": 1 },
+    { "id": "Lobby-Room-A", "from": "Lobby", "to": "Room-A", "cost": 2 },
+    { "id": "Lobby-Room-B", "from": "Lobby", "to": "Room-B", "cost": 3 },
+    { "id": "Lobby-Corridor-1", "from": "Lobby", "to": "Corridor-1", "cost": 2 },
+    { "id": "Room-A-Room-B", "from": "Room-A", "to": "Room-B", "cost": 2 },
+    { "id": "Room-B-Room-C", "from": "Room-B", "to": "Room-C", "cost": 2 },
+    { "id": "Room-C-Corridor-1", "from": "Room-C", "to": "Corridor-1", "cost": 1 },
+    { "id": "Corridor-1-Stair-A", "from": "Corridor-1", "to": "Stair-A", "cost": 2 },
+    { "id": "Corridor-1-Stair-B", "from": "Corridor-1", "to": "Stair-B", "cost": 3 },
+    { "id": "Stair-A-Exit-1", "from": "Stair-A", "to": "Exit-1", "cost": 4 },
+    { "id": "Stair-B-Exit-2", "from": "Stair-B", "to": "Exit-2", "cost": 5 },
+    { "id": "Stair-A-Floor2-Corridor", "from": "Stair-A", "to": "Floor2-Corridor", "cost": 3 },
+    { "id": "Stair-B-Floor2-Corridor", "from": "Stair-B", "to": "Floor2-Corridor", "cost": 4 },
+    { "id": "Floor2-Corridor-Room-D", "from": "Floor2-Corridor", "to": "Room-D", "cost": 2 },
+    { "id": "Floor2-Corridor-Room-E", "from": "Floor2-Corridor", "to": "Room-E", "cost": 2 },
+    { "id": "Floor2-Corridor-Room-F", "from": "Floor2-Corridor", "to": "Room-F", "cost": 3 },
+    { "id": "Room-D-Room-E", "from": "Room-D", "to": "Room-E", "cost": 2 },
+    { "id": "Room-E-Room-F", "from": "Room-E", "to": "Room-F", "cost": 2 },
+    { "id": "Floor2-Corridor-Stair-C", "from": "Floor2-Corridor", "to": "Stair-C", "cost": 2 },
+    { "id": "Stair-C-Exit-3", "from": "Stair-C", "to": "Exit-3", "cost": 4 },
+    { "id": "Stair-C-Floor3-Corridor", "from": "Stair-C", "to": "Floor3-Corridor", "cost": 3 },
+    { "id": "Floor3-Corridor-Room-G", "from": "Floor3-Corridor", "to": "Room-G", "cost": 2 },
+    { "id": "Floor3-Corridor-Room-H", "from": "Floor3-Corridor", "to": "Room-H", "cost": 2 },
+    { "id": "Floor3-Corridor-Room-I", "from": "Floor3-Corridor", "to": "Room-I", "cost": 3 },
+    { "id": "Room-G-Room-H", "from": "Room-G", "to": "Room-H", "cost": 2 },
+    { "id": "Room-H-Room-I", "from": "Room-H", "to": "Room-I", "cost": 2 },
+    { "id": "Floor3-Corridor-Exit-4", "from": "Floor3-Corridor", "to": "Exit-4", "cost": 5 }
+  ],
+  "initial_state": {
+    "blocked_nodes": [
+      "Room-C"
+    ],
+    "blocked_edges": [
+      "Stair-B-Exit-2",
+      "Room-E-Room-F"
+    ],
+    "closed_exits": [
+      "Exit-3"
+    ]
+  }
+}

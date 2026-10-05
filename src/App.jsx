@@ -5,13 +5,14 @@ import { calculateShortestPath } from './utils/dijkstra';
 import BuildingMap from './components/BuildingMap';
 import { 
   Upload, Map as MapIcon, AlertTriangle, RotateCcw, 
-  CheckCircle2, Sun, Shield, ShieldCheck, ArrowRight, 
+  CheckCircle2, Sun, Moon, Shield, ShieldCheck, ArrowRight, 
   MousePointer2, Ban, Unplug, Lock, ChevronRight, X, Code
 } from 'lucide-react';
 
 function App() {
   const [lang, setLang] = useState('en');
   const t = translations[lang];
+  const [theme, setTheme] = useState('light');
 
   const [buildingData, setBuildingData] = useState(null);
   const [initialHazards, setInitialHazards] = useState(null);
@@ -21,6 +22,7 @@ function App() {
   const [importError, setImportError] = useState(null);
   
   const [interactionMode, setInteractionMode] = useState('select');
+  const [currentView, setCurrentView] = useState('map'); // 'map' | 'hazards'
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -29,6 +31,10 @@ function App() {
   const [pasteResult, setPasteResult] = useState({ valid: false, error: null, parsed: null });
 
   const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
 
   useEffect(() => {
     if (buildingData && selectedStart) {
@@ -52,6 +58,7 @@ function App() {
     setRouteData({ path: null, cost: null, error: null });
     setImportError(null);
     setInteractionMode('select');
+    setCurrentView('map');
     setIsModalOpen(false);
     
     // Reset paste state
@@ -89,7 +96,6 @@ function App() {
       validateBuildingData(json);
       setPasteResult({ valid: true, error: null, parsed: json });
     } catch (err) {
-      // Trying to get approximate location for parse errors
       let errMsg = err.message;
       setPasteResult({ valid: false, error: errMsg, parsed: null });
     }
@@ -109,6 +115,7 @@ function App() {
   const handleReset = () => {
     if (initialHazards) {
       setHazards(JSON.parse(JSON.stringify(initialHazards)));
+      setSelectedStart(null);
     }
   };
 
@@ -188,8 +195,8 @@ function App() {
             <button className={`lang-btn ${lang === 'en' ? 'active' : ''}`} onClick={() => setLang('en')}>English</button>
             <button className={`lang-btn ${lang === 'bn' ? 'active' : ''}`} onClick={() => setLang('bn')}>বাংলা</button>
           </div>
-          <button className="theme-toggle">
-            <Sun size={20} />
+          <button className="theme-toggle" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}>
+            {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
           </button>
         </div>
       </header>
@@ -207,9 +214,15 @@ function App() {
           </div>
 
           <div className="nav-menu">
-            <button className="nav-item active"><MapIcon size={18} /> {t.map}</button>
-            <button className="nav-item"><AlertTriangle size={18} /> {t.hazards}</button>
-            <button className="nav-item" onClick={handleReset}><RotateCcw size={18} /> {t.reset}</button>
+            <button className={`nav-item ${currentView === 'map' ? 'active' : ''}`} onClick={() => setCurrentView('map')}>
+              <MapIcon size={18} /> {t.map}
+            </button>
+            <button className={`nav-item ${currentView === 'hazards' ? 'active' : ''}`} onClick={() => setCurrentView('hazards')}>
+              <AlertTriangle size={18} /> {t.hazards}
+            </button>
+            <button className="nav-item" onClick={handleReset}>
+              <RotateCcw size={18} /> {t.reset}
+            </button>
           </div>
 
           <div className="legend-section card">
@@ -274,7 +287,7 @@ function App() {
 
         {/* Center Area */}
         <section className="center-area">
-          {buildingData && (
+          {buildingData && currentView === 'map' && (
             <div className="status-bar-top success">
               <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
                 <CheckCircle2 size={18} /> {t.buildingLoaded}
@@ -287,46 +300,113 @@ function App() {
             </div>
           )}
 
-          <div className="map-wrapper">
-            {buildingData ? (
-              <BuildingMap 
-                buildingData={buildingData} 
-                hazards={hazards} 
-                selectedStart={selectedStart}
-                routePath={routeData.path}
-                onNodeClick={handleNodeClick}
-                onEdgeClick={handleEdgeClick}
-              />
+          <div className="map-wrapper" style={{ padding: currentView === 'hazards' ? '2rem' : '0', overflowY: currentView === 'hazards' ? 'auto' : 'hidden' }}>
+            {currentView === 'map' ? (
+              buildingData ? (
+                <BuildingMap 
+                  buildingData={buildingData} 
+                  hazards={hazards} 
+                  selectedStart={selectedStart}
+                  routePath={routeData.path}
+                  onNodeClick={handleNodeClick}
+                  onEdgeClick={handleEdgeClick}
+                />
+              ) : (
+                <div style={{display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-light)'}}>
+                  {t.uploadJson}
+                </div>
+              )
             ) : (
-              <div style={{display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-light)'}}>
-                {t.uploadJson}
+              <div className="hazards-dashboard-view">
+                <h2 style={{fontSize: '1.5rem', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
+                  <AlertTriangle color="var(--warning)" /> Full Hazard Management
+                </h2>
+                <p style={{color: 'var(--text-muted)', marginBottom: '2rem'}}>Quickly manage all blocked nodes, corridors, and locked exits across the building.</p>
+                
+                {buildingData ? (
+                  <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '2rem'}}>
+                    {/* Nodes Column */}
+                    <div>
+                      <h3 style={{marginBottom: '1rem', color: 'var(--text-main)', borderBottom: '2px solid var(--border)', paddingBottom: '0.5rem'}}>Rooms & Junctions</h3>
+                      <div className="hazard-list-box">
+                        {buildingData.nodes.filter(n => n.type !== 'exit').map(n => {
+                          const isBlocked = hazards.blockedNodes.includes(n.id);
+                          return (
+                            <div key={n.id} className="hazard-item-row" style={{background: isBlocked ? 'var(--danger-light)' : 'var(--bg-main)'}}>
+                              <span style={{color: isBlocked ? 'var(--danger)' : 'var(--text-main)', fontWeight: '600'}}>{n.id}</span>
+                              <button className="btn-small" onClick={() => toggleNodeBlock(n.id)}>
+                                {isBlocked ? 'Unblock' : 'Block'}
+                              </button>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                    {/* Corridors Column */}
+                    <div>
+                      <h3 style={{marginBottom: '1rem', color: 'var(--text-main)', borderBottom: '2px solid var(--border)', paddingBottom: '0.5rem'}}>Corridors</h3>
+                      <div className="hazard-list-box">
+                        {buildingData.edges.map(e => {
+                          const isBlocked = hazards.blockedEdges.includes(e.id);
+                          return (
+                            <div key={e.id} className="hazard-item-row" style={{background: isBlocked ? 'var(--warning-light)' : 'var(--bg-main)'}}>
+                              <span style={{color: isBlocked ? 'var(--warning-dark)' : 'var(--text-main)', fontWeight: '600'}}>{e.id}</span>
+                              <button className="btn-small" onClick={() => toggleEdgeBlock(e.id)}>
+                                {isBlocked ? 'Unblock' : 'Block'}
+                              </button>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                    {/* Exits Column */}
+                    <div>
+                      <h3 style={{marginBottom: '1rem', color: 'var(--text-main)', borderBottom: '2px solid var(--border)', paddingBottom: '0.5rem'}}>Exits</h3>
+                      <div className="hazard-list-box">
+                        {buildingData.nodes.filter(n => n.type === 'exit').map(n => {
+                          const isClosed = hazards.closedExits.includes(n.id);
+                          return (
+                            <div key={n.id} className="hazard-item-row" style={{background: isClosed ? '#e2e8f0' : 'var(--bg-main)'}}>
+                              <span style={{color: isClosed ? '#475569' : 'var(--text-main)', fontWeight: '600'}}>{n.id}</span>
+                              <button className="btn-small" onClick={() => toggleExitClose(n.id)}>
+                                {isClosed ? 'Reopen' : 'Close'}
+                              </button>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div>{t.uploadJson}</div>
+                )}
               </div>
             )}
           </div>
 
           <div className="action-bar-bottom">
-            <div className={`action-card ${interactionMode === 'select' ? 'active' : ''}`} onClick={() => setInteractionMode('select')}>
+            <div className={`action-card ${interactionMode === 'select' ? 'active' : ''}`} onClick={() => { setInteractionMode('select'); setCurrentView('map'); }}>
               <div className="action-icon" style={{color: 'var(--blue)'}}><MousePointer2 size={24}/></div>
               <div className="action-text">
                 <h4>{t.selectStart}</h4>
                 <p>{t.selectStartDesc}</p>
               </div>
             </div>
-            <div className={`action-card ${interactionMode === 'blockNode' ? 'active' : ''}`} onClick={() => setInteractionMode('blockNode')}>
+            <div className={`action-card ${interactionMode === 'blockNode' ? 'active' : ''}`} onClick={() => { setInteractionMode('blockNode'); setCurrentView('map'); }}>
               <div className="action-icon" style={{color: 'var(--danger)'}}><Ban size={24}/></div>
               <div className="action-text">
                 <h4>{t.blockNode}</h4>
                 <p>{t.blockNodeDesc}</p>
               </div>
             </div>
-            <div className={`action-card ${interactionMode === 'blockEdge' ? 'active' : ''}`} onClick={() => setInteractionMode('blockEdge')}>
+            <div className={`action-card ${interactionMode === 'blockEdge' ? 'active' : ''}`} onClick={() => { setInteractionMode('blockEdge'); setCurrentView('map'); }}>
               <div className="action-icon" style={{color: 'var(--warning)'}}><Unplug size={24}/></div>
               <div className="action-text">
                 <h4>{t.blockCorridor}</h4>
                 <p>{t.blockCorridorDesc}</p>
               </div>
             </div>
-            <div className={`action-card ${interactionMode === 'closeExit' ? 'active' : ''}`} onClick={() => setInteractionMode('closeExit')}>
+            <div className={`action-card ${interactionMode === 'closeExit' ? 'active' : ''}`} onClick={() => { setInteractionMode('closeExit'); setCurrentView('map'); }}>
               <div className="action-icon" style={{color: 'var(--text-muted)'}}><Lock size={24}/></div>
               <div className="action-text">
                 <h4>{t.closeExit}</h4>
@@ -417,7 +497,7 @@ function App() {
                   </div>
                 ) : hazards.blockedEdges.map(id => (
                   <div key={id} className="hazard-item-row">
-                    <span className="hazard-badge blocked">{id}</span>
+                    <span className="hazard-badge blocked" style={{background: 'var(--warning-light)', color: 'var(--warning-dark)'}}>{id}</span>
                     <button className="btn-small" onClick={() => toggleEdgeBlock(id)}>{t.unblock}</button>
                   </div>
                 ))}

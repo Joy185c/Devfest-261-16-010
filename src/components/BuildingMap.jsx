@@ -34,7 +34,7 @@ const BuildingMap = ({
   };
 
   // Calculate boundaries
-  const padding = 150;
+  const padding = 200;
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   nodes.forEach(n => {
     if (n.x < minX) minX = n.x;
@@ -89,7 +89,7 @@ const BuildingMap = ({
 
   return (
     <div 
-      style={{ width: '100%', height: '100%', overflow: 'hidden', background: '#f8fafc', cursor: isDragging ? 'grabbing' : 'grab' }}
+      style={{ width: '100%', height: '100%', overflow: 'hidden', background: 'var(--bg-main)', cursor: isDragging ? 'grabbing' : 'grab' }}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
@@ -102,31 +102,61 @@ const BuildingMap = ({
         viewBox={viewBox} 
         preserveAspectRatio="xMidYMid meet"
       >
-        {/* Definitions for Grid and Filters */}
         <defs>
-          <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#e2e8f0" strokeWidth="1" />
+          {/* Blueprint Grid Patterns */}
+          <pattern id="smallGrid" width="15" height="15" patternUnits="userSpaceOnUse">
+            <path d="M 15 0 L 0 0 0 15" fill="none" stroke="var(--border)" strokeWidth="0.5" opacity="0.4" />
           </pattern>
-          <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-            <feDropShadow dx="0" dy="4" stdDeviation="4" floodOpacity="0.05" />
+          <pattern id="grid" width="75" height="75" patternUnits="userSpaceOnUse">
+            <rect width="75" height="75" fill="url(#smallGrid)" />
+            <path d="M 75 0 L 0 0 0 75" fill="none" stroke="var(--border)" strokeWidth="1" opacity="0.8" />
+          </pattern>
+
+          {/* Premium Drop Shadows & Glows */}
+          <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="8" stdDeviation="8" floodOpacity="0.08" />
           </filter>
+          <filter id="routeGlow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="8" result="coloredBlur"/>
+            <feMerge>
+              <feMergeNode in="coloredBlur"/>
+              <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+          </filter>
+
+          {/* 3D Gradients for Nodes */}
+          <linearGradient id="gradRoom" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="var(--node-room-bg)" stopOpacity="1" />
+            <stop offset="100%" stopColor="var(--blue-light)" stopOpacity="1" />
+          </linearGradient>
+          <linearGradient id="gradJunc" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="var(--node-junc-bg)" stopOpacity="1" />
+            <stop offset="100%" stopColor="var(--warning-light)" stopOpacity="1" />
+          </linearGradient>
+          <linearGradient id="gradExit" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="var(--accent-green)" stopOpacity="1" />
+            <stop offset="100%" stopColor="var(--accent-green-dark)" stopOpacity="1" />
+          </linearGradient>
+          <linearGradient id="gradClosed" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="var(--node-closed-bg)" stopOpacity="1" />
+            <stop offset="100%" stopColor="#334155" stopOpacity="1" />
+          </linearGradient>
         </defs>
 
-        {/* Scalable/Pannable Group */}
         <g transform={`translate(${transform.x}, ${transform.y}) scale(${transform.scale})`}>
           
           {/* Blueprint Grid Background */}
           <rect x={minX - padding*2} y={minY - padding*2} width={width + padding*4} height={height + padding*4} fill="url(#grid)" />
 
-          {/* Compass Icon */}
-          <g transform={`translate(${maxX + padding - 40}, ${maxY + padding - 40})`}>
-            <circle cx="0" cy="0" r="18" fill="white" stroke="#cbd5e1" strokeWidth="2" filter="url(#shadow)"/>
-            <path d="M0 -10 L5 0 L0 10 L-5 0 Z" fill="#64748b"/>
-            <path d="M0 -10 L0 10 L-5 0 Z" fill="#94a3b8"/>
-            <text x="0" y="-16" fontSize="12" fontWeight="600" fill="#64748b" textAnchor="middle">N</text>
+          {/* Compass Icon - Modern Design */}
+          <g transform={`translate(${maxX + padding - 60}, ${minY - padding + 60})`}>
+            <circle cx="0" cy="0" r="24" fill="var(--bg-card)" stroke="var(--border)" strokeWidth="2" filter="url(#softShadow)"/>
+            <path d="M0 -14 L6 0 L0 14 L-6 0 Z" fill="var(--text-muted)"/>
+            <path d="M0 -14 L0 14 L-6 0 Z" fill="var(--text-light)"/>
+            <text x="0" y="-20" fontSize="12" fontWeight="700" fill="var(--text-muted)" textAnchor="middle">N</text>
           </g>
 
-          {/* Edges */}
+          {/* Edges Layer */}
           {edges.map(edge => {
             const fromNode = nodeMap[edge.from];
             const toNode = nodeMap[edge.to];
@@ -135,17 +165,13 @@ const BuildingMap = ({
             const isBlocked = blockedEdges.includes(edge.id);
             const inRoute = isEdgeInRoute(edge.from, edge.to);
             
-            let edgeColor = "#cbd5e1";
-            let edgeWidth = 6;
+            let edgeColor = "var(--border)";
+            let edgeWidth = 8;
             let strokeDasharray = "none";
             
             if (isBlocked) {
-              edgeColor = "#fecaca";
-              strokeDasharray = "8, 8";
-            }
-            if (inRoute) {
-              edgeColor = "var(--accent-green)";
-              edgeWidth = 8;
+              edgeColor = "var(--danger-light)";
+              strokeDasharray = "12, 12";
             }
 
             const midX = (fromNode.x + toNode.x) / 2;
@@ -160,42 +186,59 @@ const BuildingMap = ({
                 }} 
                 style={{cursor: 'pointer'}}
               >
+                {/* Base Line */}
                 <line 
                   x1={fromNode.x} 
                   y1={fromNode.y} 
                   x2={toNode.x} 
                   y2={toNode.y} 
-                  stroke={edgeColor}
-                  strokeWidth={edgeWidth}
+                  stroke={inRoute ? "var(--accent-green-light)" : edgeColor}
+                  strokeWidth={inRoute ? 14 : edgeWidth}
                   strokeLinecap="round"
                   strokeDasharray={strokeDasharray}
-                  style={{ transition: 'all 0.3s ease' }}
+                  style={{ transition: 'all 0.4s ease' }}
+                  filter={inRoute ? "url(#routeGlow)" : "none"}
                 />
+                
+                {/* Animated Flow Line for Routes */}
+                {inRoute && (
+                  <line 
+                    x1={fromNode.x} 
+                    y1={fromNode.y} 
+                    x2={toNode.x} 
+                    y2={toNode.y} 
+                    stroke="var(--accent-green)"
+                    strokeWidth="6"
+                    strokeLinecap="round"
+                    strokeDasharray="16 16"
+                  >
+                    <animate attributeName="stroke-dashoffset" from="32" to="0" dur="1s" repeatCount="indefinite" />
+                  </line>
+                )}
                 
                 {/* Invisible thicker line for easier clicking */}
-                <line 
-                  x1={fromNode.x} y1={fromNode.y} x2={toNode.x} y2={toNode.y} 
-                  stroke="transparent" strokeWidth="24"
-                />
+                <line x1={fromNode.x} y1={fromNode.y} x2={toNode.x} y2={toNode.y} stroke="transparent" strokeWidth="30" />
                 
-                {/* Cost Pill */}
+                {/* Glassmorphism Cost Pill */}
                 <rect 
-                  x={midX - 14} 
-                  y={midY - 14} 
-                  width="28" 
-                  height="28" 
-                  rx="14"
-                  fill="white"
-                  stroke={edgeColor}
+                  x={midX - 16} 
+                  y={midY - 16} 
+                  width="32" 
+                  height="32" 
+                  rx="16"
+                  fill="var(--bg-card)"
+                  fillOpacity="0.9"
+                  stroke={inRoute ? "var(--accent-green)" : (isBlocked ? "var(--danger)" : "var(--border)")}
                   strokeWidth="2"
-                  filter="url(#shadow)"
+                  filter="url(#softShadow)"
+                  style={{ transition: 'all 0.3s ease' }}
                 />
                 <text 
                   x={midX} 
                   y={midY} 
-                  fill={inRoute ? "var(--accent-green-dark)" : "#64748b"} 
-                  fontSize="12" 
-                  fontWeight="700" 
+                  fill={inRoute ? "var(--accent-green-dark)" : (isBlocked ? "var(--danger)" : "var(--text-muted)")} 
+                  fontSize="13" 
+                  fontWeight="800" 
                   textAnchor="middle" 
                   dominantBaseline="central"
                 >
@@ -205,12 +248,13 @@ const BuildingMap = ({
             );
           })}
 
-          {/* Nodes */}
+          {/* Nodes Layer */}
           {nodes.map(node => {
             const isBlocked = blockedNodes.includes(node.id);
             const isClosed = closedExits.includes(node.id);
             const isSelected = selectedStart === node.id;
             const inRoute = routePath && routePath.includes(node.id);
+            const isExit = node.type === 'exit';
 
             return (
               <g 
@@ -221,72 +265,76 @@ const BuildingMap = ({
                   if (!dragMoved) onNodeClick(node); 
                 }}
                 style={{ cursor: 'pointer' }}
-                // Removed 'className="svg-node-group"' to prevent CSS transform scale overriding the SVG translate
               >
-                {/* Inner wrapper for scale effect if needed, but keeping it simple to avoid jumpiness */}
                 <g>
-                  {/* Selection / Route Pulse Ring */}
-                  {isSelected && <circle r="28" fill="none" stroke="#8b5cf6" strokeWidth="3" strokeDasharray="4 4" className="pulse-ring" />}
-                  {inRoute && !isSelected && <circle r="28" fill="none" stroke="var(--accent-green-light)" strokeWidth="4" />}
+                  {/* Outer Glowing Rings */}
+                  {isSelected && <circle r="34" fill="none" stroke="var(--blue)" strokeWidth="3" strokeDasharray="6 6" className="pulse-ring">
+                    <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="10s" repeatCount="indefinite"/>
+                  </circle>}
+                  
+                  {inRoute && !isSelected && <circle r="34" fill="var(--accent-green-light)" opacity="0.3" filter="url(#routeGlow)" />}
 
-                  {/* Shapes */}
+                  {/* Shapes with Gradients */}
                   {node.type === 'room' && (
-                    <circle r="20" fill="var(--node-room-bg)" stroke="var(--node-room-stroke)" strokeWidth="3" filter="url(#shadow)" />
+                    <>
+                      <circle r="22" fill="url(#gradRoom)" stroke="var(--node-room-stroke)" strokeWidth="3" filter="url(#softShadow)" />
+                      <circle r="12" fill="var(--bg-card)" opacity="0.5" />
+                    </>
                   )}
 
                   {node.type === 'junction' && (
-                    <polygon points="0,-22 22,0 0,22 -22,0" fill="var(--node-junc-bg)" stroke="var(--node-junc-stroke)" strokeWidth="3" filter="url(#shadow)" />
+                    <>
+                      <polygon points="0,-24 24,0 0,24 -24,0" fill="url(#gradJunc)" stroke="var(--node-junc-stroke)" strokeWidth="3" filter="url(#softShadow)" />
+                      <circle r="8" fill="var(--bg-card)" opacity="0.5" />
+                    </>
                   )}
 
-                  {node.type === 'exit' && (
-                    <rect x="-18" y="-18" width="36" height="36" rx="8" fill={isClosed ? "var(--node-closed-bg)" : "var(--node-exit-bg)"} filter="url(#shadow)" />
+                  {isExit && (
+                    <rect x="-20" y="-20" width="40" height="40" rx="10" fill={isClosed ? "url(#gradClosed)" : "url(#gradExit)"} filter="url(#softShadow)" stroke={isClosed ? "#334155" : "var(--accent-green-dark)"} strokeWidth="2"/>
                   )}
 
                   {/* Node Icons inside Shapes */}
-                  {node.type === 'exit' && !isClosed && (
-                    <path d="M-6,-4 L0,-10 L6,-4 M0,-10 L0,6 M-8,10 L8,10" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+                  {isExit && !isClosed && (
+                    <path d="M-7,-5 L0,-12 L7,-5 M0,-12 L0,7 M-10,12 L10,12" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
                   )}
-                  
-                  {node.type === 'exit' && isClosed && (
-                    <path d="M-5,-2 V-5 A5,5 0 0,1 5,-5 V-2 M-7,-2 H7 V8 H-7 Z" fill="white" />
-                  )}
-
-                  {node.type !== 'exit' && (
-                    <circle r="6" fill={node.type === 'room' ? 'var(--node-room-stroke)' : 'var(--node-junc-stroke)'} opacity="0.2" />
+                  {isExit && isClosed && (
+                    <path d="M-6,-3 V-6 A6,6 0 0,1 6,-6 V-3 M-8,-3 H8 V9 H-8 Z" fill="white" />
                   )}
 
-                  {/* Text Labels (Moved BELOW the node to prevent clipping) */}
-                  <g transform="translate(0, 34)">
-                    {/* White stroke for legibility over lines */}
+                  {/* Text Labels (Premium Typography) */}
+                  <g transform="translate(0, 38)">
+                    {/* Outline for maximum readability */}
                     <text 
                       y="0" 
-                      fontSize="13" 
-                      fontWeight="700" 
+                      fontSize="14" 
+                      fontWeight="800" 
                       textAnchor="middle" 
-                      stroke="white" 
-                      strokeWidth="4" 
+                      stroke="var(--bg-main)" 
+                      strokeWidth="5" 
                       strokeLinejoin="round" 
                       paintOrder="stroke"
-                      fill={node.type === 'room' ? 'var(--node-room-stroke)' : (node.type === 'exit' ? 'var(--accent-green-dark)' : '#d97706')}
+                      fill={node.type === 'room' ? 'var(--blue)' : (isExit ? 'var(--accent-green-dark)' : 'var(--warning)')}
+                      style={{ letterSpacing: '0.5px' }}
                     >
                       {node.id}
                     </text>
                     <text 
-                      y="14" 
-                      fontSize="10" 
-                      fontWeight="500" 
+                      y="16" 
+                      fontSize="11" 
+                      fontWeight="600" 
                       textAnchor="middle" 
-                      fill="#64748b"
+                      fill="var(--text-muted)"
+                      letterSpacing="1px"
                     >
-                      ({node.type.charAt(0).toUpperCase() + node.type.slice(1)})
+                      {node.type.toUpperCase()}
                     </text>
                   </g>
 
-                  {/* Blocked Red Badge */}
+                  {/* Blocked Danger Badge */}
                   {isBlocked && (
-                    <g transform="translate(16, -16)">
-                      <circle r="10" fill="var(--danger)" stroke="white" strokeWidth="2" />
-                      <text x="0" y="1" fill="white" fontSize="12" fontWeight="bold" textAnchor="middle" dominantBaseline="central">×</text>
+                    <g transform="translate(18, -18)">
+                      <circle r="12" fill="var(--danger)" stroke="var(--bg-card)" strokeWidth="3" filter="url(#softShadow)" />
+                      <text x="0" y="1" fill="white" fontSize="14" fontWeight="900" textAnchor="middle" dominantBaseline="central">×</text>
                     </g>
                   )}
                 </g>

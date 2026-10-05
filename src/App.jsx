@@ -229,15 +229,15 @@ function App() {
             <h4 className="legend-title">{t.nodeTypes}</h4>
             <div className="legend-list">
               <div className="legend-item">
-                <svg width="20" height="20"><circle cx="10" cy="10" r="8" fill="var(--node-room-bg)" stroke="var(--node-room-stroke)" strokeWidth="2"/></svg>
+                <svg width="24" height="24"><circle cx="12" cy="12" r="10" fill="white" stroke="#94a3b8" strokeWidth="2"/></svg>
                 {t.room}
               </div>
               <div className="legend-item">
-                <svg width="20" height="20"><polygon points="10,2 18,10 10,18 2,10" fill="var(--node-junc-bg)" stroke="var(--node-junc-stroke)" strokeWidth="2"/></svg>
+                <svg width="24" height="24"><circle cx="12" cy="12" r="10" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="2"/></svg>
                 {t.junction}
               </div>
               <div className="legend-item">
-                <svg width="20" height="20"><rect x="2" y="2" width="16" height="16" rx="4" fill="var(--node-exit-bg)"/></svg>
+                <svg width="24" height="24"><circle cx="12" cy="12" r="10" fill="#10b981"/></svg>
                 {t.exit}
               </div>
             </div>
@@ -245,32 +245,30 @@ function App() {
             <h4 className="legend-title" style={{marginTop: '1rem'}}>{t.states}</h4>
             <div className="legend-list">
               <div className="legend-item">
-                <svg width="20" height="20"><circle cx="10" cy="10" r="8" fill="#e2e8f0"/></svg>
+                <svg width="24" height="24"><circle cx="12" cy="12" r="10" fill="white" stroke="#94a3b8" strokeWidth="2"/></svg>
                 {t.normal}
               </div>
               <div className="legend-item">
-                <svg width="20" height="20">
-                  <circle cx="10" cy="10" r="8" fill="#fee2e2" stroke="#ef4444"/>
-                  <path d="M7 7 l6 6 M13 7 l-6 6" stroke="#ef4444" strokeWidth="2" strokeLinecap="round"/>
-                </svg>
+                <svg width="24" height="24"><circle cx="12" cy="12" r="10" fill="#ef4444"/></svg>
                 {t.blocked}
               </div>
               <div className="legend-item">
-                <svg width="20" height="20"><rect x="2" y="2" width="16" height="16" rx="4" fill="var(--node-closed-bg)"/></svg>
+                <svg width="24" height="24"><circle cx="12" cy="12" r="10" fill="#64748b"/></svg>
                 {t.closed}
               </div>
               <div className="legend-item">
-                <svg width="20" height="20">
-                  <circle cx="10" cy="10" r="9" fill="none" stroke="#8b5cf6" strokeWidth="2" strokeDasharray="3"/>
+                <svg width="24" height="24">
+                  <circle cx="12" cy="12" r="8" fill="#2563eb"/>
+                  <circle cx="12" cy="12" r="11" fill="none" stroke="#2563eb" strokeWidth="1" strokeDasharray="3"/>
                 </svg>
                 {t.selectedStart}
               </div>
               <div className="legend-item">
-                <div style={{width: '20px', height: '4px', background: 'var(--accent-green)', borderRadius: '2px'}}></div>
+                <div style={{width: '24px', height: '6px', background: '#2563eb', borderRadius: '3px'}}></div>
                 {t.routePath}
               </div>
               <div className="legend-item">
-                <div style={{width: '20px', height: '4px', background: '#cbd5e1', borderRadius: '2px'}}></div>
+                <div style={{width: '24px', height: '6px', background: '#cbd5e1', borderRadius: '3px'}}></div>
                 {t.edgeCorridor}
               </div>
             </div>

@@ -4,15 +4,12 @@ import { validateBuildingData } from './utils/validator';
 import { calculateShortestPath } from './utils/dijkstra';
 import BuildingMap from './components/BuildingMap';
 import { 
-  Upload, Map as MapIcon, AlertTriangle, RotateCcw, 
-  CheckCircle2, Sun, Moon, Shield, ShieldCheck, ArrowRight, 
-  MousePointer2, Ban, Unplug, Lock, ChevronRight, X, Code
+  Upload, BedDouble, ArrowRightLeft, DoorOpen, LogOut, XOctagon, MousePointer2, Ban, Unplug, Lock, X, CheckCircle2, RotateCcw, ShieldCheck, Layers
 } from 'lucide-react';
 
 function App() {
-  const [lang, setLang] = useState('en');
+  const [lang] = useState('en');
   const t = translations[lang];
-  const [theme, setTheme] = useState('light');
 
   const [buildingData, setBuildingData] = useState(null);
   const [initialHazards, setInitialHazards] = useState(null);
@@ -21,20 +18,14 @@ function App() {
   const [routeData, setRouteData] = useState({ path: null, cost: null, error: null });
   const [importError, setImportError] = useState(null);
   
-  const [interactionMode, setInteractionMode] = useState('select');
-  const [currentView, setCurrentView] = useState('map'); // 'map' | 'hazards'
+  const [interactionMode, setInteractionMode] = useState('select'); // select | blockNode | blockEdge | closeExit
 
-  // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [importTab, setImportTab] = useState('file'); // 'file' | 'paste'
-  const [pastedJson, setPastedJson] = useState('');
-  const [pasteResult, setPasteResult] = useState({ valid: false, error: null, parsed: null });
-
   const fileInputRef = useRef(null);
 
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-  }, [theme]);
+    document.documentElement.setAttribute('data-theme', 'light'); // Always light mode for this premium look
+  }, []);
 
   useEffect(() => {
     if (buildingData && selectedStart) {
@@ -58,12 +49,7 @@ function App() {
     setRouteData({ path: null, cost: null, error: null });
     setImportError(null);
     setInteractionMode('select');
-    setCurrentView('map');
     setIsModalOpen(false);
-    
-    // Reset paste state
-    setPastedJson('');
-    setPasteResult({ valid: false, error: null, parsed: null });
   };
 
   const handleFileUpload = (e) => {
@@ -83,33 +69,6 @@ function App() {
     };
     reader.readAsText(file);
     e.target.value = null;
-  };
-
-  const handleValidateJson = () => {
-    if (!pastedJson.trim()) {
-      setPasteResult({ valid: false, error: "JSON is empty.", parsed: null });
-      return;
-    }
-    
-    try {
-      const json = JSON.parse(pastedJson);
-      validateBuildingData(json);
-      setPasteResult({ valid: true, error: null, parsed: json });
-    } catch (err) {
-      let errMsg = err.message;
-      setPasteResult({ valid: false, error: errMsg, parsed: null });
-    }
-  };
-
-  const handleClearJson = () => {
-    setPastedJson('');
-    setPasteResult({ valid: false, error: null, parsed: null });
-  };
-
-  const handleImportJson = () => {
-    if (pasteResult.valid && pasteResult.parsed) {
-      commitImportedData(pasteResult.parsed);
-    }
   };
 
   const handleReset = () => {
@@ -141,481 +100,203 @@ function App() {
   const toggleNodeBlock = (nodeId) => {
     setHazards(prev => {
       const isBlocked = prev.blockedNodes.includes(nodeId);
-      return {
-        ...prev,
-        blockedNodes: isBlocked ? prev.blockedNodes.filter(id => id !== nodeId) : [...prev.blockedNodes, nodeId]
-      };
+      return { ...prev, blockedNodes: isBlocked ? prev.blockedNodes.filter(id => id !== nodeId) : [...prev.blockedNodes, nodeId] };
     });
   };
 
   const toggleEdgeBlock = (edgeId) => {
     setHazards(prev => {
       const isBlocked = prev.blockedEdges.includes(edgeId);
-      return {
-        ...prev,
-        blockedEdges: isBlocked ? prev.blockedEdges.filter(id => id !== edgeId) : [...prev.blockedEdges, edgeId]
-      };
+      return { ...prev, blockedEdges: isBlocked ? prev.blockedEdges.filter(id => id !== edgeId) : [...prev.blockedEdges, edgeId] };
     });
   };
 
   const toggleExitClose = (exitId) => {
     setHazards(prev => {
       const isClosed = prev.closedExits.includes(exitId);
-      return {
-        ...prev,
-        closedExits: isClosed ? prev.closedExits.filter(id => id !== exitId) : [...prev.closedExits, exitId]
-      };
+      return { ...prev, closedExits: isClosed ? prev.closedExits.filter(id => id !== exitId) : [...prev.closedExits, exitId] };
     });
   };
 
-  const getStatusInfo = () => {
-    if (importError) return { type: 'error', title: "Error", desc: importError };
-    if (!buildingData) return { type: 'neutral', title: "Awaiting Import", desc: "Please upload a building.json file" };
-    if (routeData.error === 'noRoute') return { type: 'error', title: t.noRoute, desc: t.noRouteDesc };
-    if (routeData.error === 'blockedStart') return { type: 'error', title: t.startBlocked, desc: t.startBlockedDesc };
-    if (routeData.path) return { type: 'success', title: t.routeFound, desc: t.routeFoundDesc };
-    return { type: 'neutral', title: "Ready", desc: "Select a start point to begin" };
-  };
-
-  const status = getStatusInfo();
+  const totalRooms = buildingData ? buildingData.nodes.filter(n => n.type === 'room').length : 0;
+  const totalExits = buildingData ? buildingData.nodes.filter(n => n.type === 'exit').length : 0;
+  const totalCorridors = buildingData ? buildingData.edges.length : 0;
+  const totalStairs = buildingData ? buildingData.nodes.filter(n => n.id.toLowerCase().includes('stair')).length : 0;
 
   return (
-    <div className="app-container">
-      {/* Header */}
-      <header className="header">
-        <div className="header-left">
-          <ShieldCheck size={36} className="logo-icon" />
-          <div className="header-titles">
-            <h1>{t.appTitle}</h1>
-            <p>{t.appSubtitle}</p>
+    <div style={{ padding: '24px', background: '#f8fafc', height: '100vh', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      
+      {/* Top Header Card */}
+      <div style={{ background: 'white', borderRadius: '16px', padding: '16px 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={{ width: '48px', height: '48px', background: '#10b981', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+            <LogOut size={24} />
+          </div>
+          <div>
+            <h1 style={{ fontSize: '20px', fontWeight: '800', color: '#0f172a', margin: 0, letterSpacing: '-0.5px' }}>Building Floor Map</h1>
+            <p style={{ fontSize: '13px', color: '#64748b', margin: 0, fontWeight: 500 }}>Navigate through rooms and corridors</p>
           </div>
         </div>
-        <div className="header-right">
-          <div className="lang-toggle">
-            <button className={`lang-btn ${lang === 'en' ? 'active' : ''}`} onClick={() => setLang('en')}>English</button>
-            <button className={`lang-btn ${lang === 'bn' ? 'active' : ''}`} onClick={() => setLang('bn')}>বাংলা</button>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+          {/* Interaction Mode Toggles */}
+          <div style={{ display: 'flex', background: '#f1f5f9', padding: '4px', borderRadius: '12px', gap: '4px' }}>
+            <button onClick={() => setInteractionMode('select')} style={{ padding: '8px 12px', borderRadius: '8px', border: 'none', background: interactionMode === 'select' ? 'white' : 'transparent', color: interactionMode === 'select' ? '#0f172a' : '#64748b', fontWeight: 600, fontSize: '13px', cursor: 'pointer', boxShadow: interactionMode === 'select' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none' }}><MousePointer2 size={14} style={{verticalAlign:'text-bottom', marginRight:'4px'}}/> Select Start</button>
+            <button onClick={() => setInteractionMode('blockNode')} style={{ padding: '8px 12px', borderRadius: '8px', border: 'none', background: interactionMode === 'blockNode' ? 'white' : 'transparent', color: interactionMode === 'blockNode' ? '#ef4444' : '#64748b', fontWeight: 600, fontSize: '13px', cursor: 'pointer', boxShadow: interactionMode === 'blockNode' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none' }}><Ban size={14} style={{verticalAlign:'text-bottom', marginRight:'4px'}}/> Block Node</button>
+            <button onClick={() => setInteractionMode('blockEdge')} style={{ padding: '8px 12px', borderRadius: '8px', border: 'none', background: interactionMode === 'blockEdge' ? 'white' : 'transparent', color: interactionMode === 'blockEdge' ? '#f59e0b' : '#64748b', fontWeight: 600, fontSize: '13px', cursor: 'pointer', boxShadow: interactionMode === 'blockEdge' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none' }}><Unplug size={14} style={{verticalAlign:'text-bottom', marginRight:'4px'}}/> Block Edge</button>
           </div>
-          <button className="theme-toggle" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}>
-            {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
+
+          <div style={{ height: '32px', width: '1px', background: '#e2e8f0' }}></div>
+          
+          <button onClick={() => setIsModalOpen(true)} style={{ background: '#ecfdf5', color: '#059669', border: 'none', padding: '10px 16px', borderRadius: '24px', fontWeight: '700', fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Upload size={16} /> Import
           </button>
+          
+          <div style={{ display: 'flex', gap: '16px', color: '#64748b', fontSize: '13px', fontWeight: 600 }}>
+            <span>Total Rooms: <span style={{color: '#0f172a'}}>{totalRooms}</span></span>
+            <div style={{ width: '1px', height: '16px', background: '#e2e8f0', alignSelf: 'center' }}></div>
+            <span>Exits: <span style={{color: '#0f172a'}}>{totalExits}</span></span>
+          </div>
         </div>
-      </header>
+      </div>
 
-      <main className="main-content">
-        {/* Left Sidebar */}
-        <aside className="left-sidebar">
-          <div className="card import-box" onClick={() => setIsModalOpen(true)}>
-            <div className="import-icon"><Upload size={20} /></div>
-            <div className="import-text">
-              <h3>{t.importBuilding}</h3>
-              <p>{t.uploadJson}</p>
-            </div>
-            <ChevronRight size={16} style={{ marginLeft: 'auto', color: 'var(--text-light)' }} />
-          </div>
-
-          <div className="nav-menu">
-            <button className={`nav-item ${currentView === 'map' ? 'active' : ''}`} onClick={() => setCurrentView('map')}>
-              <MapIcon size={18} /> {t.map}
-            </button>
-            <button className={`nav-item ${currentView === 'hazards' ? 'active' : ''}`} onClick={() => setCurrentView('hazards')}>
-              <AlertTriangle size={18} /> {t.hazards}
-            </button>
-            <button className="nav-item" onClick={handleReset}>
-              <RotateCcw size={18} /> {t.reset}
-            </button>
-          </div>
-
-          <div className="legend-section card">
-            <h4 className="legend-title">{t.nodeTypes}</h4>
-            <div className="legend-list">
-              <div className="legend-item">
-                <svg width="24" height="24"><circle cx="12" cy="12" r="10" fill="white" stroke="#94a3b8" strokeWidth="2"/></svg>
-                {t.room}
-              </div>
-              <div className="legend-item">
-                <svg width="24" height="24"><circle cx="12" cy="12" r="10" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="2"/></svg>
-                {t.junction}
-              </div>
-              <div className="legend-item">
-                <svg width="24" height="24"><circle cx="12" cy="12" r="10" fill="#10b981"/></svg>
-                {t.exit}
-              </div>
-            </div>
-
-            <h4 className="legend-title" style={{marginTop: '1rem'}}>{t.states}</h4>
-            <div className="legend-list">
-              <div className="legend-item">
-                <svg width="24" height="24"><circle cx="12" cy="12" r="10" fill="white" stroke="#94a3b8" strokeWidth="2"/></svg>
-                {t.normal}
-              </div>
-              <div className="legend-item">
-                <svg width="24" height="24"><circle cx="12" cy="12" r="10" fill="#ef4444"/></svg>
-                {t.blocked}
-              </div>
-              <div className="legend-item">
-                <svg width="24" height="24"><circle cx="12" cy="12" r="10" fill="#64748b"/></svg>
-                {t.closed}
-              </div>
-              <div className="legend-item">
-                <svg width="24" height="24">
-                  <circle cx="12" cy="12" r="8" fill="#2563eb"/>
-                  <circle cx="12" cy="12" r="11" fill="none" stroke="#2563eb" strokeWidth="1" strokeDasharray="3"/>
-                </svg>
-                {t.selectedStart}
-              </div>
-              <div className="legend-item">
-                <div style={{width: '24px', height: '6px', background: '#2563eb', borderRadius: '3px'}}></div>
-                {t.routePath}
-              </div>
-              <div className="legend-item">
-                <div style={{width: '24px', height: '6px', background: '#cbd5e1', borderRadius: '3px'}}></div>
-                {t.edgeCorridor}
-              </div>
-            </div>
-          </div>
-
-          <div className="sidebar-footer">
-            <Shield size={24} className="logo-icon" />
-            <div>
-              <h4>{t.appTitle}</h4>
-              <p>{t.thinkPlanBeSafe}</p>
-            </div>
-          </div>
-        </aside>
-
-        {/* Center Area */}
-        <section className="center-area">
-          {buildingData && currentView === 'map' && (
-            <div className="status-bar-top success">
-              <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
-                <CheckCircle2 size={18} /> {t.buildingLoaded}
-              </div>
-              <div className="status-bar-top-right">
-                <span>{t.building}: {buildingData.building}</span>
-                <span>{t.nodes}: {buildingData.nodes.length}</span>
-                <span>{t.edges}: {buildingData.edges.length}</span>
-              </div>
+      <div style={{ display: 'flex', gap: '24px', flex: 1, minHeight: 0 }}>
+        {/* Main Map Area */}
+        <div style={{ flex: 1, background: 'white', borderRadius: '16px', boxShadow: '0 2px 10px rgba(0,0,0,0.02)', position: 'relative' }}>
+          {buildingData ? (
+            <BuildingMap 
+              buildingData={buildingData} 
+              hazards={hazards} 
+              selectedStart={selectedStart}
+              routePath={routeData.path}
+              onNodeClick={handleNodeClick}
+              onEdgeClick={handleEdgeClick}
+            />
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#94a3b8' }}>
+              <Upload size={48} style={{ marginBottom: '16px', color: '#cbd5e1' }}/>
+              <h2 style={{ margin: 0, color: '#64748b' }}>No Building Data Loaded</h2>
+              <p style={{ marginTop: '8px' }}>Click Import in the top header to load your map JSON.</p>
             </div>
           )}
+        </div>
 
-          <div className="map-wrapper" style={{ padding: currentView === 'hazards' ? '2rem' : '0', overflowY: currentView === 'hazards' ? 'auto' : 'hidden' }}>
-            {currentView === 'map' ? (
-              buildingData ? (
-                <BuildingMap 
-                  buildingData={buildingData} 
-                  hazards={hazards} 
-                  selectedStart={selectedStart}
-                  routePath={routeData.path}
-                  onNodeClick={handleNodeClick}
-                  onEdgeClick={handleEdgeClick}
-                />
-              ) : (
-                <div style={{display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-light)'}}>
-                  {t.uploadJson}
+        {/* Right Sidebar */}
+        <div style={{ width: '300px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          
+          {/* Legend Card */}
+          <div style={{ background: 'white', borderRadius: '16px', padding: '24px', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: '800', margin: '0 0 16px 0', borderBottom: '1px solid #f1f5f9', paddingBottom: '16px' }}>Legend</h3>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#f0f6ff', color: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><BedDouble size={16}/></div>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: '#475569' }}>Room</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#f0f6ff', color: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ArrowRightLeft size={16}/></div>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: '#475569' }}>Corridor</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#f0f6ff', color: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Layers size={16}/></div>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: '#475569' }}>Staircase</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#10b981', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><LogOut size={16}/></div>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: '#475569' }}>Exit (Open)</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#ef4444', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><XOctagon size={16}/></div>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: '#475569' }}>Exit / Room (Closed)</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <div style={{ width: '36px', height: '6px', borderRadius: '3px', background: '#fca5a5' }}></div>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: '#475569' }}>Blocked Path</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <div style={{ width: '36px', height: '4px', borderRadius: '2px', background: '#cbd5e1' }}></div>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: '#475569' }}>Available Path</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#f8fafc', border: '1px solid #e2e8f0', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700 }}>#</div>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: '#475569' }}>Connection Cost</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Info Card */}
+          <div style={{ background: 'white', borderRadius: '16px', padding: '24px', boxShadow: '0 2px 10px rgba(0,0,0,0.02)', flex: 1 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #f1f5f9', paddingBottom: '16px' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: '800', margin: 0 }}>Quick Info</h3>
+              <button onClick={handleReset} style={{ background: 'transparent', border: 'none', color: '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: 600 }}><RotateCcw size={14}/> Reset</button>
+            </div>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#10b981', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><LogOut size={18}/></div>
+                <div>
+                  <div style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', lineHeight: 1 }}>{totalExits}</div>
+                  <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Total Exits</div>
                 </div>
-              )
-            ) : (
-              <div className="hazards-dashboard-view">
-                <h2 style={{fontSize: '1.5rem', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
-                  <AlertTriangle color="var(--warning)" /> Full Hazard Management
-                </h2>
-                <p style={{color: 'var(--text-muted)', marginBottom: '2rem'}}>Quickly manage all blocked nodes, corridors, and locked exits across the building.</p>
-                
-                {buildingData ? (
-                  <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '2rem'}}>
-                    {/* Nodes Column */}
-                    <div>
-                      <h3 style={{marginBottom: '1rem', color: 'var(--text-main)', borderBottom: '2px solid var(--border)', paddingBottom: '0.5rem'}}>Rooms & Junctions</h3>
-                      <div className="hazard-list-box">
-                        {buildingData.nodes.filter(n => n.type !== 'exit').map(n => {
-                          const isBlocked = hazards.blockedNodes.includes(n.id);
-                          return (
-                            <div key={n.id} className="hazard-item-row" style={{background: isBlocked ? 'var(--danger-light)' : 'var(--bg-main)'}}>
-                              <span style={{color: isBlocked ? 'var(--danger)' : 'var(--text-main)', fontWeight: '600'}}>{n.id}</span>
-                              <button className="btn-small" onClick={() => toggleNodeBlock(n.id)}>
-                                {isBlocked ? 'Unblock' : 'Block'}
-                              </button>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    </div>
-                    {/* Corridors Column */}
-                    <div>
-                      <h3 style={{marginBottom: '1rem', color: 'var(--text-main)', borderBottom: '2px solid var(--border)', paddingBottom: '0.5rem'}}>Corridors</h3>
-                      <div className="hazard-list-box">
-                        {buildingData.edges.map(e => {
-                          const isBlocked = hazards.blockedEdges.includes(e.id);
-                          return (
-                            <div key={e.id} className="hazard-item-row" style={{background: isBlocked ? 'var(--warning-light)' : 'var(--bg-main)'}}>
-                              <span style={{color: isBlocked ? 'var(--warning-dark)' : 'var(--text-main)', fontWeight: '600'}}>{e.id}</span>
-                              <button className="btn-small" onClick={() => toggleEdgeBlock(e.id)}>
-                                {isBlocked ? 'Unblock' : 'Block'}
-                              </button>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    </div>
-                    {/* Exits Column */}
-                    <div>
-                      <h3 style={{marginBottom: '1rem', color: 'var(--text-main)', borderBottom: '2px solid var(--border)', paddingBottom: '0.5rem'}}>Exits</h3>
-                      <div className="hazard-list-box">
-                        {buildingData.nodes.filter(n => n.type === 'exit').map(n => {
-                          const isClosed = hazards.closedExits.includes(n.id);
-                          return (
-                            <div key={n.id} className="hazard-item-row" style={{background: isClosed ? '#e2e8f0' : 'var(--bg-main)'}}>
-                              <span style={{color: isClosed ? '#475569' : 'var(--text-main)', fontWeight: '600'}}>{n.id}</span>
-                              <button className="btn-small" onClick={() => toggleExitClose(n.id)}>
-                                {isClosed ? 'Reopen' : 'Close'}
-                              </button>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div>{t.uploadJson}</div>
-                )}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#f0f6ff', color: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><BedDouble size={18}/></div>
+                <div>
+                  <div style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', lineHeight: 1 }}>{totalRooms}</div>
+                  <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Total Rooms</div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#f0f6ff', color: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Layers size={18}/></div>
+                <div>
+                  <div style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', lineHeight: 1 }}>{totalStairs}</div>
+                  <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Staircases</div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#f8fafc', border: '1px solid #e2e8f0', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ArrowRightLeft size={18}/></div>
+                <div>
+                  <div style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', lineHeight: 1 }}>{totalCorridors}</div>
+                  <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Corridor Connections</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Route Status Summary */}
+            {routeData.path && (
+              <div style={{ marginTop: '32px', padding: '16px', background: '#eff6ff', borderRadius: '12px', border: '1px solid #bfdbfe' }}>
+                <div style={{ fontSize: '11px', color: '#3b82f6', fontWeight: 700, marginBottom: '4px', textTransform: 'uppercase' }}>Optimal Route Found</div>
+                <div style={{ fontSize: '24px', fontWeight: 800, color: '#1e3a8a' }}>{routeData.cost} <span style={{fontSize:'12px', color:'#60a5fa'}}>Steps</span></div>
+              </div>
+            )}
+            {routeData.error && (
+              <div style={{ marginTop: '32px', padding: '16px', background: '#fef2f2', borderRadius: '12px', border: '1px solid #fecaca' }}>
+                <div style={{ fontSize: '11px', color: '#ef4444', fontWeight: 700, marginBottom: '4px', textTransform: 'uppercase' }}>Error</div>
+                <div style={{ fontSize: '14px', fontWeight: 700, color: '#991b1b' }}>{routeData.error === 'noRoute' ? "No clear path to exit!" : "Start point is blocked!"}</div>
               </div>
             )}
           </div>
-
-          <div className="action-bar-bottom">
-            <div className={`action-card ${interactionMode === 'select' ? 'active' : ''}`} onClick={() => { setInteractionMode('select'); setCurrentView('map'); }}>
-              <div className="action-icon" style={{color: 'var(--blue)'}}><MousePointer2 size={24}/></div>
-              <div className="action-text">
-                <h4>{t.selectStart}</h4>
-                <p>{t.selectStartDesc}</p>
-              </div>
-            </div>
-            <div className={`action-card ${interactionMode === 'blockNode' ? 'active' : ''}`} onClick={() => { setInteractionMode('blockNode'); setCurrentView('map'); }}>
-              <div className="action-icon" style={{color: 'var(--danger)'}}><Ban size={24}/></div>
-              <div className="action-text">
-                <h4>{t.blockNode}</h4>
-                <p>{t.blockNodeDesc}</p>
-              </div>
-            </div>
-            <div className={`action-card ${interactionMode === 'blockEdge' ? 'active' : ''}`} onClick={() => { setInteractionMode('blockEdge'); setCurrentView('map'); }}>
-              <div className="action-icon" style={{color: 'var(--warning)'}}><Unplug size={24}/></div>
-              <div className="action-text">
-                <h4>{t.blockCorridor}</h4>
-                <p>{t.blockCorridorDesc}</p>
-              </div>
-            </div>
-            <div className={`action-card ${interactionMode === 'closeExit' ? 'active' : ''}`} onClick={() => { setInteractionMode('closeExit'); setCurrentView('map'); }}>
-              <div className="action-icon" style={{color: 'var(--text-muted)'}}><Lock size={24}/></div>
-              <div className="action-text">
-                <h4>{t.closeExit}</h4>
-                <p>{t.closeExitDesc}</p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Right Sidebar */}
-        <aside className="right-sidebar">
-          <div className="card">
-            <div className="panel-header">
-              <MapIcon size={20} />
-              {t.routeInfo}
-            </div>
-
-            <div className="route-endpoints">
-              <div className="endpoint">
-                <span className="endpoint-label">{t.start}</span>
-                <div className="endpoint-circle start">
-                  <span>{routeData.path ? routeData.path[0] : '-'}</span>
-                  <span>{t.room}</span>
-                </div>
-              </div>
-              <ArrowRight size={24} className="endpoint-arrow" />
-              <div className="endpoint">
-                <span className="endpoint-label">{t.exit}</span>
-                <div className="endpoint-circle exit">
-                  <span>{routeData.path ? routeData.path[routeData.path.length-1] : '-'}</span>
-                  <span>{t.exit}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="path-section">
-              <div className="path-title">{t.path}</div>
-              <div className="path-nodes">
-                {routeData.path ? routeData.path.map((nodeId, idx) => {
-                  const node = buildingData.nodes.find(n => n.id === nodeId);
-                  const typeClass = node.type === 'room' ? 'room' : node.type === 'junction' ? 'junc' : 'exit';
-                  return (
-                    <React.Fragment key={idx}>
-                      <span className={`path-pill ${typeClass}`}>{nodeId}</span>
-                      {idx < routeData.path.length - 1 && <ArrowRight size={14} style={{color: 'var(--text-light)'}}/>}
-                    </React.Fragment>
-                  );
-                }) : (
-                  <span style={{color: 'var(--text-light)'}}>-</span>
-                )}
-              </div>
-            </div>
-
-            <div className="cost-section">
-              <span className="cost-title">{t.totalCost}</span>
-              <span className="cost-value">{routeData.cost !== null ? routeData.cost : '-'}</span>
-            </div>
-          </div>
-
-          <div className="card">
-            <div className="panel-header">
-              <AlertTriangle size={20} />
-              {t.hazardControls}
-            </div>
-
-            <div className="hazard-group">
-              <div className="hazard-title">{t.blockedNodes}</div>
-              <div className="hazard-list-box">
-                {hazards.blockedNodes.length === 0 ? (
-                  <div className="hazard-item-row">
-                    <span className="hazard-badge none">{t.none}</span>
-                  </div>
-                ) : hazards.blockedNodes.map(id => (
-                  <div key={id} className="hazard-item-row">
-                    <span className="hazard-badge blocked">{id}</span>
-                    <button className="btn-small" onClick={() => toggleNodeBlock(id)}>{t.unblock}</button>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="hazard-group">
-              <div className="hazard-title">{t.blockedCorridors}</div>
-              <div className="hazard-list-box">
-                {hazards.blockedEdges.length === 0 ? (
-                  <div className="hazard-item-row">
-                    <span className="hazard-badge none">{t.none}</span>
-                  </div>
-                ) : hazards.blockedEdges.map(id => (
-                  <div key={id} className="hazard-item-row">
-                    <span className="hazard-badge blocked" style={{background: 'var(--warning-light)', color: 'var(--warning-dark)'}}>{id}</span>
-                    <button className="btn-small" onClick={() => toggleEdgeBlock(id)}>{t.unblock}</button>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="hazard-group">
-              <div className="hazard-title">{t.closedExits}</div>
-              <div className="hazard-list-box">
-                {hazards.closedExits.length === 0 ? (
-                  <div className="hazard-item-row">
-                    <span className="hazard-badge none">{t.none}</span>
-                  </div>
-                ) : hazards.closedExits.map(id => (
-                  <div key={id} className="hazard-item-row">
-                    <span className="hazard-badge closed">{id}</span>
-                    <button className="btn-small" onClick={() => toggleExitClose(id)}>{t.reopen}</button>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <button className="btn-reset" onClick={handleReset}>
-              <RotateCcw size={18} />
-              {t.reset}
-            </button>
-          </div>
-
-          <div className={`status-card ${status.type}`}>
-            {status.type === 'success' ? <CheckCircle2 size={24} color="var(--accent-green)" /> : 
-             status.type === 'error' ? <AlertTriangle size={24} color="var(--danger)" /> :
-             <CheckCircle2 size={24} color="var(--text-muted)" />}
-            <div className="status-text">
-              <h4>{status.title}</h4>
-              <p>{status.desc}</p>
-            </div>
-          </div>
-        </aside>
-      </main>
+        </div>
+      </div>
 
       {/* Import Modal */}
       {isModalOpen && (
-        <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2 className="modal-title"><Upload size={20}/> {t.importBuildingData}</h2>
-              <button className="modal-close" onClick={() => setIsModalOpen(false)}><X size={24}/></button>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
+          <div style={{ background: 'white', padding: '32px', borderRadius: '24px', width: '400px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+              <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>Import Building Data</h2>
+              <button onClick={() => setIsModalOpen(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#94a3b8' }}><X size={20}/></button>
             </div>
             
-            <div className="modal-tabs">
-              <button 
-                className={`modal-tab ${importTab === 'file' ? 'active' : ''}`}
-                onClick={() => setImportTab('file')}
-              >
-                <Upload size={16} style={{display:'inline', marginRight:'0.5rem', verticalAlign:'text-bottom'}}/> 
-                {t.uploadFile}
-              </button>
-              <button 
-                className={`modal-tab ${importTab === 'paste' ? 'active' : ''}`}
-                onClick={() => setImportTab('paste')}
-              >
-                <Code size={16} style={{display:'inline', marginRight:'0.5rem', verticalAlign:'text-bottom'}}/> 
-                {t.pasteJson}
-              </button>
-            </div>
-
-            <div className="modal-body">
-              {importTab === 'file' ? (
-                <div style={{textAlign: 'center', padding: '2rem 0'}}>
-                  <p style={{color: 'var(--text-muted)', marginBottom: '1.5rem'}}>Select a .json file containing the building data.</p>
-                  <input type="file" accept=".json" ref={fileInputRef} onChange={handleFileUpload} style={{ display: 'none' }} />
-                  <button className="btn-primary" style={{margin: '0 auto'}} onClick={() => fileInputRef.current?.click()}>
-                    <Upload size={18} /> Select File
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <textarea 
-                    className="json-textarea" 
-                    placeholder={t.pastePlaceholder}
-                    value={pastedJson}
-                    onChange={(e) => {
-                      setPastedJson(e.target.value);
-                      setPasteResult({ valid: false, error: null, parsed: null });
-                    }}
-                  />
-                  
-                  {pasteResult.error && (
-                    <div className="validation-error">
-                      <strong>Validation Error:</strong><br/>
-                      {pasteResult.error}
-                    </div>
-                  )}
-
-                  {pasteResult.valid && pasteResult.parsed && (
-                    <>
-                      <div className="validation-success">
-                        <CheckCircle2 size={18}/> {t.validJson}
-                      </div>
-                      <div className="json-preview-box">
-                        {JSON.stringify(pasteResult.parsed, null, 2)}
-                      </div>
-                    </>
-                  )}
-
-                  <div className="modal-actions">
-                    <button className="btn-secondary" onClick={handleClearJson}>{t.clear}</button>
-                    {!pasteResult.valid ? (
-                      <button className="btn-primary" onClick={handleValidateJson}>
-                        {t.validateJson}
-                      </button>
-                    ) : (
-                      <button className="btn-primary" onClick={handleImportJson}>
-                        <CheckCircle2 size={18}/> {t.importJson}
-                      </button>
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
+            <input type="file" accept=".json" ref={fileInputRef} onChange={handleFileUpload} style={{ display: 'none' }} />
+            <button 
+              onClick={() => fileInputRef.current?.click()}
+              style={{ width: '100%', padding: '16px', background: '#f8fafc', border: '2px dashed #cbd5e1', borderRadius: '12px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', color: '#64748b', fontWeight: 600 }}
+            >
+              <Upload size={24} color="#94a3b8"/>
+              Click to Upload JSON File
+            </button>
+            {importError && <div style={{ marginTop: '16px', color: '#ef4444', fontSize: '12px', fontWeight: 600, textAlign: 'center' }}>{importError}</div>}
           </div>
         </div>
       )}

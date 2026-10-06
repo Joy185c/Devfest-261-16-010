@@ -27,6 +27,22 @@ export default function AISetupModal({ t, onClose, onConnect }) {
     }
   };
 
+  const handleApiKeyChange = (val) => {
+    setApiKey(val);
+    if (status !== 'idle') setStatus('idle');
+
+    // Auto-detect provider
+    if (val.startsWith('AIza')) {
+      setProvider('gemini');
+    } else if (val.startsWith('gsk_')) {
+      setProvider('groq');
+    } else if (val.startsWith('sk-ant-')) {
+      setProvider('anthropic');
+    } else if (val.startsWith('sk-')) {
+      setProvider('openai');
+    }
+  };
+
   return (
     <div className="onboarding-backdrop" role="dialog" aria-modal="true">
       <div className="onboarding-card" style={{ maxWidth: 450, padding: 0 }}>
@@ -49,7 +65,10 @@ export default function AISetupModal({ t, onClose, onConnect }) {
               onChange={e => setProvider(e.target.value)}
               style={{ width: '100%', padding: '10px 12px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 14 }}
             >
-              <option value="gemini">Google Gemini (Gemini 1.5 Flash)</option>
+              <option value="gemini">Google Gemini</option>
+              <option value="openai">OpenAI (ChatGPT)</option>
+              <option value="groq">Groq</option>
+              <option value="anthropic">Anthropic (Claude)</option>
             </select>
           </div>
 
@@ -60,11 +79,8 @@ export default function AISetupModal({ t, onClose, onConnect }) {
             <input 
               type="password" 
               value={apiKey}
-              onChange={e => {
-                setApiKey(e.target.value);
-                if (status !== 'idle') setStatus('idle');
-              }}
-              placeholder="AIzaSy..."
+              onChange={e => handleApiKeyChange(e.target.value)}
+              placeholder="e.g. AIzaSy... or sk-..."
               style={{ width: '100%', padding: '10px 12px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 14, boxSizing: 'border-box' }}
             />
           </div>

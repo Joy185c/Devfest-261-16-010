@@ -1,40 +1,63 @@
 export async function testAiConnection(provider, apiKey) {
-  if (provider !== 'gemini' || !apiKey) {
-    throw new Error('Invalid provider or API key missing.');
-  }
+  if (!apiKey) throw new Error('API key missing.');
 
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-  
-  const payload = {
-    contents: [{ parts: [{ text: "Respond with exactly 'OK'" }] }]
-  };
-
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
-
-  if (!response.ok) {
-    throw new Error('Connection failed');
-  }
-  
-  const data = await response.json();
-  if (data?.candidates?.[0]?.content?.parts?.[0]?.text) {
+  if (provider === 'gemini') {
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts: [{ text: "Respond with exactly 'OK'" }] }] })
+    });
+    if (!response.ok) throw new Error('Gemini connection failed');
     return true;
   }
-  
-  throw new Error('Invalid response from AI provider');
+
+  if (provider === 'openai' || provider === 'groq') {
+    const endpoint = provider === 'groq' 
+      ? 'https://api.groq.com/openai/v1/chat/completions' 
+      : 'https://api.openai.com/v1/chat/completions';
+    const model = provider === 'groq' ? 'llama3-8b-8192' : 'gpt-3.5-turbo';
+    
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: model,
+        messages: [{ role: "user", content: "Respond with exactly 'OK'" }]
+      })
+    });
+    if (!response.ok) throw new Error(`${provider} connection failed`);
+    return true;
+  }
+
+  if (provider === 'anthropic') {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-3-haiku-20240307',
+        max_tokens: 10,
+        messages: [{ role: "user", content: "Respond with exactly 'OK'" }]
+      })
+    });
+    if (!response.ok) throw new Error('Anthropic connection failed');
+    return true;
+  }
+
+  throw new Error('Unsupported provider');
 }
 
 export async function analyzePackage({ provider, apiKey, requirements, uploadedFiles, matches, statuses }) {
-  if (provider !== 'gemini' || !apiKey) {
-    throw new Error('Invalid provider or API key missing.');
-  }
+  if (!apiKey) throw new Error('API key missing.');
 
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-
-  // Prepare a prompt providing the context of the package
   const reqContext = requirements.map(r => 
     `Req ID: ${r.id}, Name: ${r.title_en}, Mandatory: ${r.mandatory}, Status: ${statuses[r.id]?.status}`
   ).join('\n');
@@ -79,30 +102,65 @@ If no suggestions, leave suggestions array empty.
 Make sure the suggestedRequirementId exactly matches an ID from the Requirements list.
   `;
 
-  const payload = {
-    contents: [{ parts: [{ text: promptText }] }],
-    generationConfig: {
-      temperature: 0.2,
-      responseMimeType: "application/json"
-    }
-  };
+  let rawText = '';
 
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
-
-  if (!response.ok) {
-    throw new Error('AI analysis failed');
+  if (provider === 'gemini') {
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: promptText }] }],
+        generationConfig: { temperature: 0.2, responseMimeType: "application/json" }
+      })
+    });
+    if (!response.ok) throw new Error('Gemini API failed');
+    const data = await response.json();
+    rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  } 
+  else if (provider === 'openai' || provider === 'groq') {
+    const endpoint = provider === 'groq' 
+      ? 'https://api.groq.com/openai/v1/chat/completions' 
+      : 'https://api.openai.com/v1/chat/completions';
+    const model = provider === 'groq' ? 'llama3-8b-8192' : 'gpt-3.5-turbo';
+    
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: model,
+        response_format: { type: "json_object" },
+        messages: [{ role: "user", content: promptText }]
+      })
+    });
+    if (!response.ok) throw new Error(`${provider} API failed`);
+    const data = await response.json();
+    rawText = data?.choices?.[0]?.message?.content;
+  }
+  else if (provider === 'anthropic') {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-3-haiku-20240307',
+        max_tokens: 1000,
+        messages: [{ role: "user", content: promptText }]
+      })
+    });
+    if (!response.ok) throw new Error('Anthropic API failed');
+    const data = await response.json();
+    rawText = data?.content?.[0]?.text;
   }
 
-  const data = await response.json();
-  const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-  
-  if (!rawText) {
-    throw new Error('Empty response from AI provider');
-  }
+  if (!rawText) throw new Error('Empty response from AI provider');
 
   try {
     const result = JSON.parse(rawText);

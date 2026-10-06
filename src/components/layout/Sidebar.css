@@ -146,10 +146,16 @@
 }
 
 /* Current */
-.step-item.current {
+.step-item.active {
   background: #eff6ff;
   color: #2563eb;
 }
+
+.step-item.current:not(.active) {
+  color: #0f172a;
+  font-weight: 600;
+}
+
 .step-item.current .step-icon {
   background: #2563eb;
   color: white;

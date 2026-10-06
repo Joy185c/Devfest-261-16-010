@@ -52,9 +52,9 @@ export const translations = {
 
     // Status labels
     statusMissing: 'Missing',
-    statusExpiryNeeded: 'Expiry Date Needed',
+    statusExpiryNeeded: 'Expiry date needed',
     statusExpired: 'Expired',
-    statusOptional: 'Optional',
+    statusOptional: 'Not provided',
     statusOK: 'OK',
     statusDuplicate: 'Duplicate',
 
@@ -169,7 +169,7 @@ export const translations = {
     statusMissing: 'অনুপস্থিত',
     statusExpiryNeeded: 'মেয়াদ তারিখ প্রয়োজন',
     statusExpired: 'মেয়াদোত্তীর্ণ',
-    statusOptional: 'ঐচ্ছিক',
+    statusOptional: 'প্রদান করা হয়নি',
     statusOK: 'ঠিক আছে',
     statusDuplicate: 'ডুপ্লিকেট',
 

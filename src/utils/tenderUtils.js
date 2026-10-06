@@ -20,13 +20,8 @@ export function validateRequirementsJson(json) {
 /**
  * status: 'missing' | 'expiryNeeded' | 'expired' | 'optional' | 'ok' | 'duplicate'
  */
-export function calcStatus(req, matchedFile, expiryDate, submissionDeadline, duplicateFileIds) {
+export function calcStatus(req, matchedFile, expiryDate, submissionDeadline) {
   const isMatched = !!matchedFile;
-
-  // Duplicate conflict — the file's content hash is duplicated elsewhere
-  if (isMatched && duplicateFileIds && duplicateFileIds.has(matchedFile.id)) {
-    return 'duplicate';
-  }
 
   if (!isMatched) {
     return req.mandatory ? 'missing' : 'optional';
@@ -42,7 +37,7 @@ export function calcStatus(req, matchedFile, expiryDate, submissionDeadline, dup
 }
 
 export function isBlocking(status) {
-  return ['missing', 'expiryNeeded', 'expired', 'duplicate'].includes(status);
+  return ['missing', 'expiryNeeded', 'expired'].includes(status);
 }
 
 // ─── Duplicate Hashing ────────────────────────────────────────────────────────

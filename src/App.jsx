@@ -58,7 +58,7 @@ export default function App() {
 
   const getReqStatus = (req) => {
     const file = getMatchedFile(req.id);
-    return calcStatus(req, file, expiryMap[req.id], tenderData?.tender.submission_deadline, duplicateFileIds);
+    return calcStatus(req, file, expiryMap[req.id], tenderData?.tender.submission_deadline);
   };
 
   const sortedReqs = tenderData
@@ -75,8 +75,7 @@ export default function App() {
     missing: sortedReqs.filter(r => getReqStatus(r) === 'missing').length,
     expiryNeeded: sortedReqs.filter(r => getReqStatus(r) === 'expiryNeeded').length,
     expired: sortedReqs.filter(r => getReqStatus(r) === 'expired').length,
-    duplicate: sortedReqs.filter(r => getReqStatus(r) === 'duplicate').length,
-  } : { missing: 0, expiryNeeded: 0, expired: 0, duplicate: 0 };
+  } : { missing: 0, expiryNeeded: 0, expired: 0 };
 
   const readyCount = tenderData ? sortedReqs.filter(r => getReqStatus(r) === 'ok' || getReqStatus(r) === 'optional').length : 0;
   const totalReqs = sortedReqs.length;
@@ -197,13 +196,17 @@ export default function App() {
   };
 
   const availableForMatch = (reqId) => {
-    // Files used by OTHER requirements are not available
-    const usedByOthers = new Set(
-      Object.entries(matchMap)
-        .filter(([r]) => r !== reqId)
-        .map(([, fId]) => fId)
-    );
-    return uploadedFiles.filter(f => !usedByOthers.has(f.id));
+    // Find hashes of files used by OTHER requirements
+    const usedHashes = new Set();
+    Object.entries(matchMap).forEach(([r, fId]) => {
+      if (r !== reqId) {
+        const file = uploadedFiles.find(f => f.id === fId);
+        if (file && file.hash) usedHashes.add(file.hash);
+      }
+    });
+    
+    // Filter out files that share a hash with already-used files
+    return uploadedFiles.filter(f => !usedHashes.has(f.hash));
   };
 
   // ─── Generate Package ────────────────────────────────────────────────────
@@ -371,7 +374,6 @@ export default function App() {
                   <IssueRow icon="missing" label={t.missing} count={issueCounts.missing} color="danger" />
                   <IssueRow icon="expiry" label={t.expiryDateNeeded} count={issueCounts.expiryNeeded} color="warning" />
                   <IssueRow icon="expired" label={t.expired} count={issueCounts.expired} color="danger" />
-                  <IssueRow icon="duplicate" label={t.duplicate} count={issueCounts.duplicate} color="purple" />
                 </div>
                 {!hasBlockingIssues && (
                   <div className="all-ready-msg"><CheckCircle2 size={14} />{t.allReady}</div>

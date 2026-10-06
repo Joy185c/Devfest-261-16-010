@@ -5,6 +5,7 @@ import {
   hashFileBytes, findDuplicateFileIds, formatBytes, getPdfPageCount
 } from './utils/tenderUtils';
 import { generateTenderPackage } from './utils/pdfGenerator';
+import OnboardingModal from './components/OnboardingModal';
 import {
   FileText, Upload, X, CheckCircle2, AlertCircle, AlertTriangle,
   Clock, Copy, Info, Download, RefreshCw, Search,
@@ -20,6 +21,16 @@ const MAX_TOTAL_MB = 50;
 export default function App() {
   const [lang, setLang] = useState('en');
   const t = translations[lang];
+
+  // ─── Onboarding State ───────────────────────────────────────────────────
+  const [showOnboarding, setShowOnboarding] = useState(() => {
+    return localStorage.getItem('tenderPackageBuilder_onboarding_completed') !== 'true';
+  });
+
+  const handleCloseOnboarding = () => {
+    localStorage.setItem('tenderPackageBuilder_onboarding_completed', 'true');
+    setShowOnboarding(false);
+  };
 
   // ─── State ───────────────────────────────────────────────────────────────
   const [tenderData, setTenderData] = useState(null);      // { tender, requirements }
@@ -263,6 +274,8 @@ export default function App() {
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
     <div className="tpb-root">
+      {showOnboarding && <OnboardingModal t={t} onClose={handleCloseOnboarding} />}
+
       {/* ── HEADER ── */}
       <header className="tpb-header">
         <div className="header-brand">

@@ -113,6 +113,17 @@ export const translations = {
     // Loading states
     loadingPdf: 'Processing PDF...',
     generatingPackage: 'Generating package...',
+
+    // Onboarding
+    onboardNext: 'Next',
+    onboardSkip: 'Skip',
+    onboardStart: 'Get Started',
+    onboardStep1Title: 'Start with your tender documents',
+    onboardStep1Desc: 'Upload the PDF files related to your tender. The system checks the files and shows their page counts so you can prepare everything in one place.',
+    onboardStep2Title: 'Match documents and check everything',
+    onboardStep2Desc: 'Match each uploaded PDF with the required document. Add expiry dates when needed. The system automatically identifies missing, expired, and duplicate documents.',
+    onboardStep3Title: 'Generate your final package',
+    onboardStep3Desc: 'When every required document is ready, generate one correctly ordered PDF package with a cover page and page numbers. Then download it and submit.'
   },
   bn: {
     // Header
@@ -228,5 +239,16 @@ export const translations = {
     // Loading states
     loadingPdf: 'PDF প্রক্রিয়া করা হচ্ছে...',
     generatingPackage: 'প্যাকেজ তৈরি হচ্ছে...',
+
+    // Onboarding
+    onboardNext: 'পরবর্তী',
+    onboardSkip: 'এড়িয়ে যান',
+    onboardStart: 'শুরু করুন',
+    onboardStep1Title: 'টেন্ডার ডকুমেন্ট দিয়ে শুরু করুন',
+    onboardStep1Desc: 'আপনার টেন্ডারের প্রয়োজনীয় PDF ফাইলগুলো আপলোড করুন। সিস্টেম ফাইলগুলো যাচাই করে প্রতিটি ফাইলের পৃষ্ঠা সংখ্যা দেখাবে।',
+    onboardStep2Title: 'ডকুমেন্ট মিলিয়ে দেখুন এবং যাচাই করুন',
+    onboardStep2Desc: 'প্রতিটি PDF সঠিক প্রয়োজনীয় ডকুমেন্টের সাথে মিলিয়ে দিন। প্রয়োজন হলে মেয়াদ শেষ হওয়ার তারিখ দিন। সিস্টেম Missing, Expired এবং Duplicate ডকুমেন্ট শনাক্ত করবে।',
+    onboardStep3Title: 'চূড়ান্ত প্যাকেজ তৈরি করুন',
+    onboardStep3Desc: 'সব প্রয়োজনীয় ডকুমেন্ট প্রস্তুত হলে একটি সঠিক ক্রমে সাজানো PDF package তৈরি করুন। এতে cover page ও page numbers থাকবে। এরপর এটি download করে submit করুন।'
   }
 };

@@ -381,7 +381,7 @@
 /* Upload View */
 .upload-container {
   display: grid;
-  grid-template-columns: 1fr 350px;
+  grid-template-columns: 1fr 450px;
   gap: 24px;
   flex: 1;
 }

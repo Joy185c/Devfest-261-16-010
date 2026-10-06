@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef } from 'react';
 import { translations } from './data/translations';
 import {
   validateRequirementsJson, calcStatus, isBlocking,
@@ -7,8 +7,8 @@ import {
 import { generateTenderPackage } from './utils/pdfGenerator';
 import {
   FileText, Upload, X, CheckCircle2, AlertCircle, AlertTriangle,
-  Clock, Copy, Info, Download, RefreshCw, ChevronDown, Search,
-  FolderOpen, Loader2, FileX, ArrowUpDown
+  Clock, Copy, Info, Download, RefreshCw, Search,
+  FolderOpen, Loader2
 } from 'lucide-react';
 
 let fileIdCounter = 0;
@@ -107,11 +107,11 @@ export default function App() {
     };
     reader.onerror = () => { setReqsError(t.errorInvalidJson); setLoadingReqs(false); };
     reader.readAsText(file);
-    reqsFileRef.current.value = null;
+    if (reqsFileRef.current) reqsFileRef.current.value = null;
   };
 
   // ─── PDF Upload ──────────────────────────────────────────────────────────
-  const processFiles = useCallback(async (rawFiles) => {
+  const processFiles = async (rawFiles) => {
     const errors = [];
     const pdfs = Array.from(rawFiles).filter(f => {
       if (f.type !== 'application/pdf' && !f.name.toLowerCase().endsWith('.pdf')) {
@@ -160,7 +160,7 @@ export default function App() {
     setUploadErrors(errors);
     setProcessingFiles(false);
     if (pdfFileRef.current) pdfFileRef.current.value = null;
-  }, [uploadedFiles.length, totalUploadedSize, t]);
+  };
 
   const handlePdfDrop = (e) => {
     e.preventDefault();
@@ -197,8 +197,13 @@ export default function App() {
   };
 
   const availableForMatch = (reqId) => {
-    const alreadyUsed = new Set(Object.values(matchMap).filter(fId => matchMap && fId !== matchMap[reqId]));
-    return uploadedFiles.filter(f => !alreadyUsed.has(f.id));
+    // Files used by OTHER requirements are not available
+    const usedByOthers = new Set(
+      Object.entries(matchMap)
+        .filter(([r]) => r !== reqId)
+        .map(([, fId]) => fId)
+    );
+    return uploadedFiles.filter(f => !usedByOthers.has(f.id));
   };
 
   // ─── Generate Package ────────────────────────────────────────────────────

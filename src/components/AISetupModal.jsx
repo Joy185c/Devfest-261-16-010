@@ -81,8 +81,14 @@ export default function AISetupModal({ t, onClose, onConnect }) {
               value={apiKey}
               onChange={e => handleApiKeyChange(e.target.value)}
               placeholder="e.g. AIzaSy... (Gemini) or gsk_... (Groq)"
-              style={{ width: '100%', padding: '10px 12px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 14, boxSizing: 'border-box' }}
+              style={{ width: '100%', padding: '10px 12px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 14, boxSizing: 'border-box', marginBottom: 8 }}
             />
+            <div style={{ fontSize: 13, color: '#64748b', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              <span>{t.getApiKeyHelp}</span>
+              <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" style={{ color: '#3b82f6', textDecoration: 'none', fontWeight: 500 }}>Gemini</a>
+              <span style={{ color: '#cbd5e1' }}>|</span>
+              <a href="https://console.groq.com/keys" target="_blank" rel="noreferrer" style={{ color: '#3b82f6', textDecoration: 'none', fontWeight: 500 }}>Groq</a>
+            </div>
           </div>
 
           <div style={{ fontSize: 13, color: '#64748b', backgroundColor: '#f8fafc', padding: 12, borderRadius: 6, marginBottom: 20 }}>

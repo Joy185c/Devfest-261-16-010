@@ -150,7 +150,8 @@ export const translations = {
     noAiInsights: 'Click Analyze Package to get AI insights.',
     acceptMatch: 'Accept',
     connectionSuccess: 'Connection successful!',
-    connectionFailed: 'Connection failed. Check your API key.'
+    connectionFailed: 'Connection failed. Check your API key.',
+    getApiKeyHelp: 'Don\'t have an API key? Get one for free:'
   },
   bn: {
     // Header
@@ -303,6 +304,7 @@ export const translations = {
     noAiInsights: 'AI ইনসাইট পেতে অ্যানালাইজ প্যাকেজ এ ক্লিক করুন।',
     acceptMatch: 'গ্রহণ করুন',
     connectionSuccess: 'কানেকশন সফল হয়েছে!',
-    connectionFailed: 'কানেকশন ব্যর্থ হয়েছে। API কী চেক করুন।'
+    connectionFailed: 'কানেকশন ব্যর্থ হয়েছে। API কী চেক করুন।',
+    getApiKeyHelp: 'API কী নেই? বিনামূল্যে তৈরি করুন:'
   }
 };

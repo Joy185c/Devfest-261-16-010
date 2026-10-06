@@ -27,7 +27,7 @@
 - **Registration Number:** [Your Registration Number]
 
 ## 🔗 Live Demo
-**[Live Application Link — https://mockhackathon-fawn.vercel.app/](https://mockhackathon-fawn.vercel.app/)**
+**[Live Application Link — https://tenderbd.vercel.app/](https://tenderbd.vercel.app/)**
 
 ---
 

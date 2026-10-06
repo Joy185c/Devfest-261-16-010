@@ -6,6 +6,14 @@ export const translations = {
     langEn: 'English',
     langBn: 'বাংলা',
     help: 'Help',
+    settings: 'Settings',
+    home: 'Home',
+    setup: 'Setup',
+    uploadDocs: 'Upload Documents',
+    analyze: 'Analyze',
+    review: 'Review',
+    generate: 'Generate',
+    documentCenter: 'Document Center',
 
     // Tender Overview
     tenderOverview: 'Tender Overview',
@@ -160,6 +168,14 @@ export const translations = {
     langEn: 'English',
     langBn: 'বাংলা',
     help: 'সাহায্য',
+    settings: 'সেটিংস',
+    home: 'হোম',
+    setup: 'সেটআপ',
+    uploadDocs: 'ডকুমেন্ট আপলোড',
+    analyze: 'অ্যানালাইজ',
+    review: 'রিভিউ',
+    generate: 'জেনারেট',
+    documentCenter: 'ডকুমেন্ট সেন্টার',
 
     // Tender Overview
     tenderOverview: 'টেন্ডার ওভারভিউ',

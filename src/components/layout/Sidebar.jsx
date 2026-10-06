@@ -17,7 +17,7 @@ export default function Sidebar({ t, currentRoute, navigate, workflowStates, aiE
         <div className="sidebar-label">WORKFLOW</div>
         <NavItem 
           icon={<Home size={18} />} 
-          label="Home" 
+          label={t.home || "Home"} 
           active={currentRoute === 'home'} 
           onClick={() => navigate('home')} 
         />
@@ -72,8 +72,8 @@ export default function Sidebar({ t, currentRoute, navigate, workflowStates, aiE
       </div>
 
       <div className="sidebar-nav-group mt-auto">
-        <NavItem icon={<Settings size={18} />} label="Settings" />
-        <NavItem icon={<HelpCircle size={18} />} label="Help" />
+        <NavItem icon={<Settings size={18} />} label={t.settings || "Settings"} />
+        <NavItem icon={<HelpCircle size={18} />} label={t.help || "Help"} />
       </div>
     </aside>
   );

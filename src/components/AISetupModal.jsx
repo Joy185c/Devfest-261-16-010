@@ -80,7 +80,7 @@ export default function AISetupModal({ t, onClose, onConnect }) {
               type="password" 
               value={apiKey}
               onChange={e => handleApiKeyChange(e.target.value)}
-              placeholder="e.g. AIzaSy... or sk-..."
+              placeholder="e.g. AIzaSy... (Gemini) or gsk_... (Groq)"
               style={{ width: '100%', padding: '10px 12px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 14, boxSizing: 'border-box' }}
             />
           </div>

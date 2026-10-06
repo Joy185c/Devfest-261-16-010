@@ -95,8 +95,8 @@ Clone the project and start the Vite development server in under a minute:
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/Joy185c/Devfest-261-16-010.git
-cd Devfest-261-16-010
+git clone https://github.com/Joy185c/devfest-261-16-010.git
+cd devfest-261-16-010
 
 # 2. Install dependencies
 npm install

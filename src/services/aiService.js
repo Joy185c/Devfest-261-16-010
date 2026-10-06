@@ -251,7 +251,10 @@ Only use valid target strings for NAVIGATE: upload, analyze, review, generate.
         generationConfig: { temperature: 0.3, responseMimeType: "application/json" }
       })
     });
-    if (!response.ok) throw new Error('Gemini API failed');
+    if (!response.ok) {
+      const errTxt = await response.text();
+      throw new Error(`Gemini API failed: ${errTxt}`);
+    }
     const data = await response.json();
     rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
   } 
@@ -279,7 +282,10 @@ Only use valid target strings for NAVIGATE: upload, analyze, review, generate.
         messages: messages
       })
     });
-    if (!response.ok) throw new Error(`${provider} API failed`);
+    if (!response.ok) {
+      const errTxt = await response.text();
+      throw new Error(`${provider} API failed: ${errTxt}`);
+    }
     const data = await response.json();
     rawText = data?.choices?.[0]?.message?.content;
   }

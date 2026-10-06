@@ -77,9 +77,8 @@ export default function AICopilot({
 
       setMessages(prev => [...prev, { role: 'ai', content: res.message, actions: res.actions }]);
     } catch (err) {
-      console.error(err);
-      setErrorMsgs(["AI couldn't respond right now. Your data is safe. Please try again."]);
-      // Remove the user message so they can try again, or keep it. Let's just keep it and show error.
+      console.error('AICopilot Error:', err);
+      setErrorMsgs([`Error: ${err.message || 'Unknown network error. Please try again.'}`]);
     } finally {
       setIsTyping(false);
     }

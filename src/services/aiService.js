@@ -307,13 +307,26 @@ Only use valid target strings for NAVIGATE: upload, analyze, review, generate.
   if (!rawText) throw new Error('Empty response from AI provider');
 
   try {
-    const result = JSON.parse(rawText);
-    return {
-      message: result.message || 'No message provided.',
-      actions: result.actions || []
-    };
+    let cleanText = rawText.trim();
+    if (cleanText.startsWith('```json')) cleanText = cleanText.slice(7);
+    if (cleanText.startsWith('```')) cleanText = cleanText.slice(3);
+    if (cleanText.endsWith('```')) cleanText = cleanText.slice(0, -3);
+    cleanText = cleanText.trim();
+
+    const result = JSON.parse(cleanText);
+    
+    // Sometimes the model nests the response
+    const msg = result.message || result.response?.message || result.answer || '';
+    const actions = result.actions || result.response?.actions || [];
+
+    if (!msg) {
+      console.warn("AI didn't return a message field. Raw text:", rawText);
+      return { message: cleanText, actions: [] };
+    }
+
+    return { message: msg, actions };
   } catch (e) {
-    console.error("AI JSON Parse Error", e);
+    console.error("AI JSON Parse Error", e, rawText);
     // fallback if JSON fails
     return { message: rawText, actions: [] };
   }

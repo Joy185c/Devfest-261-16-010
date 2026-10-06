@@ -1,0 +1,99 @@
+.stepper-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 32px;
+  max-width: 900px;
+  margin: 0 auto;
+  gap: 8px;
+}
+
+.stepper-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.stepper-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.3s;
+}
+
+.stepper-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.stepper-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.stepper-status {
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.stepper-connector {
+  flex: 1;
+  height: 2px;
+  background: #e2e8f0;
+  margin: 0 16px;
+  border-radius: 1px;
+  transition: all 0.3s;
+}
+
+.stepper-connector.active {
+  background: #3b82f6;
+}
+
+/* States */
+.stepper-item.completed .stepper-icon {
+  background: #10b981;
+  color: white;
+}
+
+.stepper-item.current .stepper-icon {
+  background: #eff6ff;
+  color: #2563eb;
+  border: 2px solid #3b82f6;
+}
+
+.stepper-item.locked .stepper-icon {
+  background: #f1f5f9;
+  color: #cbd5e1;
+}
+
+.stepper-item.locked .stepper-label {
+  color: #94a3b8;
+}
+
+.stepper-item.warning .stepper-icon {
+  background: #fffbeb;
+  color: #d97706;
+  border: 2px solid #f59e0b;
+}
+
+@media (max-width: 768px) {
+  .stepper-container {
+    padding: 12px 16px;
+    justify-content: flex-start;
+    overflow-x: auto;
+    gap: 4px;
+  }
+  .stepper-text {
+    display: none;
+  }
+  .stepper-connector {
+    margin: 0 8px;
+    min-width: 20px;
+  }
+}

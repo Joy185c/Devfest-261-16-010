@@ -1,3 +1,16 @@
+async function getGroqModel(apiKey) {
+  try {
+    const res = await fetch('https://api.groq.com/openai/v1/models', { headers: { 'Authorization': `Bearer ${apiKey}` } });
+    if (!res.ok) return 'llama-3.1-8b-instant';
+    const data = await res.json();
+    const ids = data.data.map(m => m.id);
+    const chatModels = ids.filter(id => !id.includes('whisper') && !id.includes('prompt-guard') && !id.includes('safeguard'));
+    return chatModels.find(id => id.includes('llama') || id.includes('allam')) || chatModels[0];
+  } catch(e) {
+    return 'llama-3.1-8b-instant';
+  }
+}
+
 export async function testAiConnection(provider, apiKey) {
   if (!apiKey) throw new Error('API key missing.');
 
@@ -16,7 +29,7 @@ export async function testAiConnection(provider, apiKey) {
     const endpoint = provider === 'groq' 
       ? 'https://api.groq.com/openai/v1/chat/completions' 
       : 'https://api.openai.com/v1/chat/completions';
-    const model = provider === 'groq' ? 'llama3-8b-8192' : 'gpt-3.5-turbo';
+    const model = provider === 'groq' ? await getGroqModel(apiKey) : 'gpt-3.5-turbo';
     
     const response = await fetch(endpoint, {
       method: 'POST',
@@ -29,7 +42,10 @@ export async function testAiConnection(provider, apiKey) {
         messages: [{ role: "user", content: "Respond with exactly 'OK'" }]
       })
     });
-    if (!response.ok) throw new Error(`${provider} connection failed`);
+    if (!response.ok) {
+      const err = await response.text();
+      throw new Error(`${provider} connection failed: ${err}`);
+    }
     return true;
   }
 
@@ -122,7 +138,7 @@ Make sure the suggestedRequirementId exactly matches an ID from the Requirements
     const endpoint = provider === 'groq' 
       ? 'https://api.groq.com/openai/v1/chat/completions' 
       : 'https://api.openai.com/v1/chat/completions';
-    const model = provider === 'groq' ? 'llama3-8b-8192' : 'gpt-3.5-turbo';
+    const model = provider === 'groq' ? await getGroqModel(apiKey) : 'gpt-3.5-turbo';
     
     const response = await fetch(endpoint, {
       method: 'POST',

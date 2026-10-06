@@ -124,6 +124,10 @@ export const translations = {
     onboardStep2Desc: 'Match each uploaded PDF with the required document. Add expiry dates when needed. The system automatically identifies missing, expired, and duplicate documents.',
     onboardStep3Title: 'Generate your final package',
     onboardStep3Desc: 'When every required document is ready, generate one correctly ordered PDF package with a cover page and page numbers. Then download it and submit.',
+    onboardStep4Title: 'Supercharge with AI (Optional)',
+    onboardStep4Desc: 'Do you want our smart AI to suggest document matches and explain issues? You can set it up now with your own API key.',
+    onboardSetupAI: 'Setup AI Now',
+    onboardMaybeLater: 'Maybe Later',
 
     // AI Features
     aiAssistant: '✨ AI Assistant',
@@ -273,6 +277,10 @@ export const translations = {
     onboardStep2Desc: 'প্রতিটি PDF সঠিক প্রয়োজনীয় ডকুমেন্টের সাথে মিলিয়ে দিন। প্রয়োজন হলে মেয়াদ শেষ হওয়ার তারিখ দিন। সিস্টেম Missing, Expired এবং Duplicate ডকুমেন্ট শনাক্ত করবে।',
     onboardStep3Title: 'চূড়ান্ত প্যাকেজ তৈরি করুন',
     onboardStep3Desc: 'সব প্রয়োজনীয় ডকুমেন্ট প্রস্তুত হলে একটি সঠিক ক্রমে সাজানো PDF package তৈরি করুন। এতে cover page ও page numbers থাকবে। এরপর এটি download করে submit করুন।',
+    onboardStep4Title: 'AI-এর সাহায্যে স্মার্ট কাজ করুন (ঐচ্ছিক)',
+    onboardStep4Desc: 'আপনি কি চান আমাদের AI স্বয়ংক্রিয়ভাবে ডকুমেন্ট ম্যাচিংয়ের সাজেশন দিক? আপনি চাইলে এখনই আপনার API Key দিয়ে এটি সেটআপ করতে পারেন।',
+    onboardSetupAI: 'এখনই AI সেটআপ করুন',
+    onboardMaybeLater: 'পরে করবো',
 
     // AI Features
     aiAssistant: '✨ AI Assistant',

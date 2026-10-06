@@ -280,7 +280,7 @@ export default function App() {
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
     <div className="tpb-root">
-      {showOnboarding && <OnboardingModal t={t} onClose={handleCloseOnboarding} />}
+      {showOnboarding && <OnboardingModal t={t} onClose={handleCloseOnboarding} onSetupAi={() => setShowAiSetup(true)} />}
       {showAiSetup && (
         <AISetupModal 
           t={t} 

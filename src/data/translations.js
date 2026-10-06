@@ -123,7 +123,30 @@ export const translations = {
     onboardStep2Title: 'Match documents and check everything',
     onboardStep2Desc: 'Match each uploaded PDF with the required document. Add expiry dates when needed. The system automatically identifies missing, expired, and duplicate documents.',
     onboardStep3Title: 'Generate your final package',
-    onboardStep3Desc: 'When every required document is ready, generate one correctly ordered PDF package with a cover page and page numbers. Then download it and submit.'
+    onboardStep3Desc: 'When every required document is ready, generate one correctly ordered PDF package with a cover page and page numbers. Then download it and submit.',
+
+    // AI Features
+    aiAssistant: '✨ AI Assistant',
+    aiOptional: 'Optional',
+    enableAI: 'Enable AI',
+    aiSetup: 'AI Setup',
+    aiProvider: 'Provider',
+    aiApiKey: 'API Key',
+    aiKeyDisclaimer: 'Your API key is used only for AI requests and is not included in the application source code.',
+    testConnection: 'Test Connection',
+    enableAIAssistant: 'Enable AI Assistant',
+    aiConnected: '✓ AI Connected',
+    analyzePackage: 'Analyze Package',
+    clearApiKey: 'Clear API Key',
+    aiFailureTitle: 'AI couldn\'t complete the analysis.',
+    aiFailureDesc: 'Your tender package is still fully usable. Core validation does not depend on AI.',
+    tryAgain: 'Try Again',
+    analyzing: 'Analyzing...',
+    aiSuggestions: 'AI Insights & Matches',
+    noAiInsights: 'Click Analyze Package to get AI insights.',
+    acceptMatch: 'Accept',
+    connectionSuccess: 'Connection successful!',
+    connectionFailed: 'Connection failed. Check your API key.'
   },
   bn: {
     // Header
@@ -249,6 +272,29 @@ export const translations = {
     onboardStep2Title: 'ডকুমেন্ট মিলিয়ে দেখুন এবং যাচাই করুন',
     onboardStep2Desc: 'প্রতিটি PDF সঠিক প্রয়োজনীয় ডকুমেন্টের সাথে মিলিয়ে দিন। প্রয়োজন হলে মেয়াদ শেষ হওয়ার তারিখ দিন। সিস্টেম Missing, Expired এবং Duplicate ডকুমেন্ট শনাক্ত করবে।',
     onboardStep3Title: 'চূড়ান্ত প্যাকেজ তৈরি করুন',
-    onboardStep3Desc: 'সব প্রয়োজনীয় ডকুমেন্ট প্রস্তুত হলে একটি সঠিক ক্রমে সাজানো PDF package তৈরি করুন। এতে cover page ও page numbers থাকবে। এরপর এটি download করে submit করুন।'
+    onboardStep3Desc: 'সব প্রয়োজনীয় ডকুমেন্ট প্রস্তুত হলে একটি সঠিক ক্রমে সাজানো PDF package তৈরি করুন। এতে cover page ও page numbers থাকবে। এরপর এটি download করে submit করুন।',
+
+    // AI Features
+    aiAssistant: '✨ AI Assistant',
+    aiOptional: 'ঐচ্ছিক',
+    enableAI: 'AI চালু করুন',
+    aiSetup: 'AI সেটআপ',
+    aiProvider: 'প্রোভাইডার',
+    aiApiKey: 'এপিআই কী (API Key)',
+    aiKeyDisclaimer: 'আপনার API কী শুধুমাত্র আপনার ব্রাউজার থেকে সরাসরি AI রিকোয়েস্টের জন্য ব্যবহৃত হবে, এটি কোথাও সেভ করা হবে না।',
+    testConnection: 'কানেকশন টেস্ট করুন',
+    enableAIAssistant: 'AI অ্যাসিস্ট্যান্ট চালু করুন',
+    aiConnected: '✓ AI কানেক্টেড',
+    analyzePackage: 'প্যাকেজ অ্যানালাইজ করুন',
+    clearApiKey: 'API কী মুছুন',
+    aiFailureTitle: 'AI অ্যানালাইসিস সম্পন্ন করতে পারেনি।',
+    aiFailureDesc: 'আপনার টেন্ডার প্যাকেজ এখনও পুরোপুরি ব্যবহারযোগ্য। মূল ভ্যালিডেশন AI-এর উপর নির্ভরশীল নয়।',
+    tryAgain: 'আবার চেষ্টা করুন',
+    analyzing: 'অ্যানালাইজ করা হচ্ছে...',
+    aiSuggestions: 'AI ইনসাইট ও ম্যাচিং',
+    noAiInsights: 'AI ইনসাইট পেতে অ্যানালাইজ প্যাকেজ এ ক্লিক করুন।',
+    acceptMatch: 'গ্রহণ করুন',
+    connectionSuccess: 'কানেকশন সফল হয়েছে!',
+    connectionFailed: 'কানেকশন ব্যর্থ হয়েছে। API কী চেক করুন।'
   }
 };

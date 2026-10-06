@@ -6,6 +6,8 @@ import {
 } from './utils/tenderUtils';
 import { generateTenderPackage } from './utils/pdfGenerator';
 import OnboardingModal from './components/OnboardingModal';
+import AIAssistant from './components/AIAssistant';
+import AISetupModal from './components/AISetupModal';
 import {
   FileText, Upload, X, CheckCircle2, AlertCircle, AlertTriangle,
   Clock, Copy, Info, Download, RefreshCw, Search,
@@ -31,6 +33,10 @@ export default function App() {
     localStorage.setItem('tenderPackageBuilder_onboarding_completed', 'true');
     setShowOnboarding(false);
   };
+
+  // ─── AI State ───────────────────────────────────────────────────────────
+  const [aiConfig, setAiConfig] = useState(null);
+  const [showAiSetup, setShowAiSetup] = useState(false);
 
   // ─── State ───────────────────────────────────────────────────────────────
   const [tenderData, setTenderData] = useState(null);      // { tender, requirements }
@@ -275,6 +281,13 @@ export default function App() {
   return (
     <div className="tpb-root">
       {showOnboarding && <OnboardingModal t={t} onClose={handleCloseOnboarding} />}
+      {showAiSetup && (
+        <AISetupModal 
+          t={t} 
+          onClose={() => setShowAiSetup(false)} 
+          onConnect={(provider, apiKey) => { setAiConfig({ provider, apiKey }); setShowAiSetup(false); }} 
+        />
+      )}
 
       {/* ── HEADER ── */}
       <header className="tpb-header">
@@ -525,6 +538,19 @@ export default function App() {
                     <span>Each document can be matched with at most one file. Each file can be used for at most one document.</span>
                   </div>
                 )}
+                
+                {/* ── AI ASSISTANT ── */}
+                <AIAssistant
+                  t={t}
+                  onOpenSetup={() => setShowAiSetup(true)}
+                  aiConfig={aiConfig}
+                  onClearConfig={() => setAiConfig(null)}
+                  requirements={tenderData.requirements}
+                  uploadedFiles={uploadedFiles}
+                  matches={matchMap}
+                  statuses={tenderData.requirements.reduce((acc, req) => ({ ...acc, [req.id]: { status: getReqStatus(req) } }), {})}
+                  onApplyMatch={doMatch}
+                />
               </div>
             </section>
 

@@ -12,48 +12,48 @@ export function HomeView({ t, tenderData, navigate, workflowStates }) {
     return (
       <div className="home-dashboard empty">
         <div className="hero-section">
-          <h1>Welcome to Tender Package Builder</h1>
-          <p className="hero-subtitle">The smartest way to prepare, verify, and generate error-free tender submissions.</p>
+          <h1>{t.homeHeroTitle}</h1>
+          <p className="hero-subtitle">{t.homeHeroSub}</p>
           <button className="btn-primary btn-xl mt-4 hero-btn" onClick={() => navigate('setup')}>
-            <FolderOpen size={20} /> Start New Tender Package
+            <FolderOpen size={20} /> {t.startNewPackage}
           </button>
         </div>
 
         <div className="features-grid mt-5">
           <div className="feature-card feature-blue">
             <div className="f-icon"><Upload size={24} /></div>
-            <h3>1. Smart Uploads</h3>
-            <p>Drag and drop multiple PDF files. Automatic page counting and format validation.</p>
+            <h3>{t.feat1Title}</h3>
+            <p>{t.feat1Desc}</p>
           </div>
           <div className="feature-card feature-green">
             <div className="f-icon"><CheckCircle2 size={24} /></div>
-            <h3>2. Auto Matching</h3>
-            <p>Smart detection matches uploaded files to mandatory tender requirements.</p>
+            <h3>{t.feat2Title}</h3>
+            <p>{t.feat2Desc}</p>
           </div>
           <div className="feature-card feature-amber">
             <div className="f-icon"><AlertTriangle size={24} /></div>
-            <h3>3. Risk Detection</h3>
-            <p>Automatically flags missing files, duplicate contents, and expired documents.</p>
+            <h3>{t.feat3Title}</h3>
+            <p>{t.feat3Desc}</p>
           </div>
           <div className="feature-card feature-purple">
             <div className="f-icon"><Sparkles size={24} /></div>
-            <h3>4. AI Assistant</h3>
-            <p>Optional AI provides intelligent insights, suggestions, and explains blocking issues.</p>
+            <h3>{t.feat4Title}</h3>
+            <p>{t.feat4Desc}</p>
           </div>
         </div>
 
         <div className="how-it-works mt-5">
-          <h3>How it works</h3>
+          <h3>{t.howItWorks}</h3>
           <div className="workflow-steps-visual">
-            <div className="w-step"><span>1</span>Setup</div>
+            <div className="w-step"><span>1</span>{t.setup}</div>
             <ArrowRight className="w-arrow" size={16} />
-            <div className="w-step"><span>2</span>Upload</div>
+            <div className="w-step"><span>2</span>{t.uploadDocs?.split(' ')[0] || 'Upload'}</div>
             <ArrowRight className="w-arrow" size={16} />
-            <div className="w-step"><span>3</span>Analyze</div>
+            <div className="w-step"><span>3</span>{t.analyze}</div>
             <ArrowRight className="w-arrow" size={16} />
-            <div className="w-step"><span>4</span>Review</div>
+            <div className="w-step"><span>4</span>{t.review}</div>
             <ArrowRight className="w-arrow" size={16} />
-            <div className="w-step"><span>5</span>Generate</div>
+            <div className="w-step"><span>5</span>{t.generate}</div>
           </div>
         </div>
       </div>
@@ -65,47 +65,47 @@ export function HomeView({ t, tenderData, navigate, workflowStates }) {
   const completedCount = steps.filter(s => workflowStates[s] === 'completed').length;
   
   let nextStep = 'upload';
-  let nextTitle = 'Upload Documents';
-  let nextDesc = 'Upload your PDF documents to begin matching against requirements.';
+  let nextTitle = t.upNextUpload;
+  let nextDesc = t.upNextUploadDesc;
   if (workflowStates.upload === 'completed') {
-    nextStep = 'analyze'; nextTitle = 'Analyze your uploaded documents'; nextDesc = 'We\'ll check document matching, duplicates, expiry dates and requirement status.';
+    nextStep = 'analyze'; nextTitle = t.upNextAnalyze; nextDesc = t.upNextAnalyzeDesc;
   }
   if (workflowStates.analyze === 'completed') {
-    nextStep = 'review'; nextTitle = 'Review Documents'; nextDesc = 'Verify all document statuses before generating the final package.';
+    nextStep = 'review'; nextTitle = t.upNextReview; nextDesc = t.upNextReviewDesc;
   }
   if (workflowStates.review === 'completed') {
-    nextStep = 'generate'; nextTitle = 'Generate Package'; nextDesc = 'All requirements met. Ready to build the final PDF.';
+    nextStep = 'generate'; nextTitle = t.upNextGenerate; nextDesc = t.upNextGenerateDesc;
   }
 
   return (
     <div className="home-dashboard">
       <h1>Welcome back</h1>
-      <p className="home-subtitle">Tender Package Builder<br/>Prepare your tender documents, verify requirements, and generate a submission-ready package.</p>
+      <p className="home-subtitle">{t.appTitle}<br/>{t.appSubtitle}</p>
 
       <div className="dashboard-grid">
         <div className="dash-card">
-          <h3 className="dash-card-title">Tender Information</h3>
+          <h3 className="dash-card-title">{t.tenderInformation}</h3>
           <div className="info-grid">
-            <div className="info-item"><span>Tender ID</span><strong>{tenderData.tender.tender_id}</strong></div>
-            <div className="info-item"><span>Procuring Entity</span><strong>{tenderData.tender.procuring_entity}</strong></div>
-            <div className="info-item"><span>Bidder</span><strong>{tenderData.tender.bidder}</strong></div>
-            <div className="info-item"><span>Deadline</span><strong>{tenderData.tender.submission_deadline}</strong></div>
+            <div className="info-item"><span>{t.tenderId}</span><strong>{tenderData.tender.tender_id}</strong></div>
+            <div className="info-item"><span>{t.procuringEntity}</span><strong>{tenderData.tender.procuring_entity}</strong></div>
+            <div className="info-item"><span>{t.bidder}</span><strong>{tenderData.tender.bidder}</strong></div>
+            <div className="info-item"><span>{t.submissionDeadline}</span><strong>{tenderData.tender.submission_deadline}</strong></div>
           </div>
         </div>
 
         <div className="dash-card progress-card">
-          <h3 className="dash-card-title">Your Progress</h3>
+          <h3 className="dash-card-title">{t.yourProgress}</h3>
           <div className="progress-bar-wrap">
             <div className="progress-bar" style={{ width: `${(completedCount / 5) * 100}%` }}></div>
           </div>
-          <p className="progress-text">{completedCount} / 5 steps completed</p>
+          <p className="progress-text">{completedCount} / 5 {t.stepsCompleted}</p>
 
           <div className="next-action-box">
-            <div className="next-action-header">Next step</div>
+            <div className="next-action-header">{t.nextStep}</div>
             <h4>{nextTitle}</h4>
             <p>{nextDesc}</p>
             <button className="btn-primary mt-3" onClick={() => navigate(nextStep)}>
-              {nextStep.charAt(0).toUpperCase() + nextStep.slice(1)} <ArrowRight size={16} />
+              {t[nextStep] || nextStep} <ArrowRight size={16} />
             </button>
           </div>
         </div>
@@ -114,9 +114,9 @@ export function HomeView({ t, tenderData, navigate, workflowStates }) {
           <div className="ai-card-content">
             <div className="ai-card-header">
               <Sparkles size={24} className="ai-icon" />
-              <h3>AI Assistant</h3>
+              <h3>{t.aiCardTitle}</h3>
             </div>
-            <p>Supercharge your workflow with our intelligent AI. Get smart document matching, risk detection, and instant explanations for any missing or expired documents.</p>
+            <p>{t.aiCardDesc}</p>
             <div className="ai-brands mt-2">
               <span className="badge">Gemini</span>
               <span className="badge">Groq</span>
@@ -125,7 +125,7 @@ export function HomeView({ t, tenderData, navigate, workflowStates }) {
             </div>
           </div>
           <button className="btn-ghost ai-btn" onClick={() => navigate('ai')}>
-            Open AI Assistant <ArrowRight size={16} />
+            {t.openAiAssistant} <ArrowRight size={16} />
           </button>
         </div>
       </div>

@@ -292,7 +292,9 @@ export default function App() {
       {/* ── HEADER ── */}
       <header className="tpb-header">
         <div className="header-brand">
-          <div className="header-icon"><FileText size={22} /></div>
+          <div className="header-icon" style={{ background: 'transparent' }}>
+            <img src="/logo.png" alt="Logo" style={{ width: 32, height: 32, objectFit: 'contain' }} />
+          </div>
           <div>
             <h1 className="header-title">{t.appTitle}</h1>
             <p className="header-subtitle">{t.appSubtitle}</p>

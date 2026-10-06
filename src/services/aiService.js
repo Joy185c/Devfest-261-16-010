@@ -103,10 +103,10 @@ ${matchesContext}
 
 Return exactly this JSON format:
 {
-  "summary": "A human-friendly 1-2 sentence summary of the package readiness.",
+  "summary": "A warm, helpful, and detailed 2-3 sentence summary of the overall package readiness.",
   "issues": [
-    "Explanation of blocking issue 1 (e.g. Trade License is missing)",
-    "Explanation of blocking issue 2"
+    "Detailed explanation of blocking issue 1 AND exactly WHY it is an issue (e.g. 'Trade License is missing. Since this is a mandatory requirement, your package generation is currently blocked.')",
+    "Detailed explanation of issue 2 AND exactly WHY it needs attention..."
   ],
   "suggestions": [
     { "filename": "example.pdf", "suggestedRequirementId": "R01", "confidence": "90%" }
@@ -116,6 +116,7 @@ Return exactly this JSON format:
 If no issues, leave issues array empty.
 If no suggestions, leave suggestions array empty.
 Make sure the suggestedRequirementId exactly matches an ID from the Requirements list.
+Ensure all explanations are natural, detailed, and directly tell the user why the issue matters and how to resolve it.
   `;
 
   let rawText = '';

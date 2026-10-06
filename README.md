@@ -1,109 +1,123 @@
-# Tender Package Builder
+<div align="center">
+  <img src="./public/favicon.svg" alt="Logo" width="80" height="80">
+  <h1 align="center">Tender Package Builder</h1>
+  
+  <p align="center">
+    <strong>AI DevFest 2026 Hackathon — Official Submission</strong>
+  </p>
 
-## AI DevFest Hackathon — Tender Document Package Builder
+  <p align="center">
+    A premium, browser-based React application that helps office staff turn a set of scattered PDF files into one complete, checked, and correctly ordered PDF package, ready for tender submission.
+  </p>
 
-A professional, browser-based frontend application for building compliant tender document packages. Built in 90 minutes as part of the AI DevFest hackathon.
+  <p align="center">
+    <a href="#-live-demo">Live Demo</a> •
+    <a href="#-core-features">Features</a> •
+    <a href="#-how-to-run-locally">Run Locally</a> •
+    <a href="#-tech-stack">Tech Stack</a>
+  </p>
+</div>
+
+<br />
 
 ---
 
 ## 👤 Author
-
 - **Name:** [Your Name]
 - **Registration Number:** [Your Registration Number]
 
+## 🔗 Live Demo
+**[Live Application Link — Update Here]**
+
 ---
 
-## 🔗 Live Link
+## ✨ Core Features
 
-[Deployed App URL — update after deployment]
+### 📑 1. Dynamic Requirements Loading
+- Loads and parses `requirements.json` instantly.
+- Dynamically renders Tender ID, Title, Procuring Entity, Bidder, and Submission Deadline.
+- Strictly follows document sorting and order defined in the JSON.
+
+### 📁 2. Robust PDF Upload & Management
+- Multi-file drag & drop support.
+- Strict validation: **PDFs only**, up to **30 files**, and max **50 MB** total.
+- Real-time PDF page counting via fast raw byte scanning.
+
+### 🔍 3. Intelligent Duplicate Detection
+- Browser-native **SHA-256 content hashing** detects exact duplicate files, even if filenames differ.
+- Identifies and visually flags duplicates in the upload list, preventing invalid matches to different documents.
+
+### 🎯 4. Strict One-to-One Matching
+- Clean UI to match an uploaded PDF to a required document.
+- One requirement → At most one file. One file → At most one requirement.
+- Supports changing, removing, and undoing matches effortlessly.
+
+### 📅 5. Expiry Date Validation
+- Dynamic expiry date input fields appear only for documents where `has_expiry: true`.
+- Compares entered expiry date against the `submission_deadline`.
+- *Same-day expiry is validated as OK.*
+
+### 🚦 6. Granular Status Engine & Blocking Logic
+Every requirement shows exactly **one** precise status updated in real time:
+- 🔴 **Missing** (Blocking)
+- 🟠 **Expiry date needed** (Blocking)
+- 🔴 **Expired** (Blocking)
+- ⚪ **Not provided** (Optional, Non-blocking)
+- 🟢 **OK** (Non-blocking)
+
+The **Generate Package** button remains strictly disabled until ZERO blocking issues exist.
+
+### 📄 7. Professional PDF Generation
+Generated purely in the frontend using `pdf-lib`:
+- **English Cover Page:** Contains Tender ID, Title, Entity, Bidder, Deadline, Made Date, and the ordered index of included documents.
+- **Ordered Document Merge:** Compiles all matched PDFs in exact original order, skipping empty optional documents.
+- **Smart Footer:** Adds `<tender_id> | Page X of Y` to the bottom of *every* page without obscuring existing document content.
+- Downloaded flawlessly as `<tender_id>_Package.pdf`.
+
+### 🌐 8. Complete Bilingual UI
+- Instant, seamless toggle between **English** and **বাংলা (Bengali)**.
+- Replaces all UI labels, document titles (`title_en` / `title_bn`), error messages, and statuses dynamically.
+
+---
+
+## 🛠️ Tech Stack
+- **React 18** — Component-driven UI.
+- **Vite** — Lightning-fast development and optimized build.
+- **Vanilla CSS** — Premium, customized styling with glass-morphism, flexbox grids, and responsive design.
+- **pdf-lib** — Powerful client-side PDF creation, modification, and merging.
+- **Lucide React** — Beautiful, consistent SVG iconography.
 
 ---
 
 ## 🚀 How to Run Locally
 
-```bash
-# Clone the repository
-git clone <repo-url>
-cd mock_hackathon
+Clone the project and start the Vite development server in under a minute:
 
-# Install dependencies
+```bash
+# 1. Clone the repository
+git clone https://github.com/Joy185c/Devfest-261-16-010.git
+cd Devfest-261-16-010
+
+# 2. Install dependencies
 npm install
 
-# Start development server
+# 3. Start the dev server
 npm run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173) in Chrome.
+Open [http://localhost:5173](http://localhost:5173) in your Chrome browser to view the application.
 
 ---
 
-## ✅ Main Features
-
-1. **Requirements Loading** — Load `requirements.json` via file dialog; validates structure and shows tender details.
-
-2. **PDF Upload** — Drag & drop or browse to upload PDFs. Validates file type, limits (30 files / 50 MB total), processes page count.
-
-3. **Matching System** — Assign uploaded PDFs to required documents. One-to-one enforcement. Match / Change / Remove controls.
-
-4. **Duplicate Detection** — Uses `crypto.subtle.digest('SHA-256')` to detect identical PDF content regardless of filename. Blocked from matching.
-
-5. **Expiry Validation** — Date picker for documents with `has_expiry=true`. Validates against submission deadline. Same-day expiry is OK.
-
-6. **Status System** — `Missing` | `Expiry Date Needed` | `Expired` | `Optional` | `OK` | `Duplicate` — shown with icons + text + color.
-
-7. **Readiness Summary** — Donut chart and issue counts update in real time.
-
-8. **Blocking Logic** — Generate button disabled until all mandatory documents are OK.
-
-9. **PDF Generation** — Produces a single ordered PDF using `pdf-lib`:
-   - Cover page (Tender ID, title, entity, bidder, deadline, creation date, document list)
-   - All matched documents in `requirement.order` order
-   - Footer on every page: `<tender_id> | Page X of Y`
-   - Filename: `<tender_id>_Package.pdf`
-
-10. **Bilingual UI** — Full English / বাংলা translation with a single language switch.
-
-11. **Empty / Loading / Error / Success states** — Polished UX for every state.
-
----
-
-## 🎁 Bonus Features
-
-*None implemented (within 90-minute scope)*
-
----
-
-## ⚠️ Known Problems
-
-- Page count detection for PDFs uses raw byte scanning (`/Type /Page` regex), which is reliable for most PDFs but may under-count pages in rare encrypted/compressed PDFs.
-- Very large PDFs (>10 MB each) may cause noticeable processing delay in the browser.
-
----
-
-## 🤖 AI Tools Used
-
-- **Antigravity (Google DeepMind Advanced Agentic Coding)** — Primary coding agent used for the full implementation.
-
----
-
-## 💡 Most Useful Prompt
-
-> "Build the AI DevFest Tender Package Builder as a complete, frontend-only React/Vite app. Requirements loading, PDF upload, SHA-256 duplicate detection, expiry validation, exact status system, blocking logic, ordered pdf-lib package generation with cover page and X-of-Y footer, download, bilingual English/Bangla UI. No backend, no auth, no hardcoded data."
-
----
-
-## 📁 Output
-
-The generated package PDF is saved under:
-
-```
-output/<tender_id>_Package.pdf
-```
-
+## 📁 Output Directory
+The generated combined PDF files are intended to be saved in the `output/` directory for record-keeping.
 Example: `output/T-2026-0417_Package.pdf`
 
+## 📸 Screenshots
+Refer to the `screenshots/` folder for visual references of the application's clean, premium interface and dynamic status updates.
+
 ---
 
-## 📸 Screenshots
-
-See the `screenshots/` folder for at least one screenshot showing document statuses.
+<div align="center">
+  <sub>Built under 90-minutes constraint for the AI DevFest Hackathon.</sub>
+</div>

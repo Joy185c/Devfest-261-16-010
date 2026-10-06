@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { ArrowRight, AlertCircle, CheckCircle2 } from 'lucide-react';
 import './WorkflowViews.css';
 
 export default function ReviewView({ 
-  t, tenderData, filteredReqs, getMatchedFile, getReqStatus, expiryMap, 
+  t, filteredReqs, getMatchedFile, getReqStatus, expiryMap, 
   setMatchModalReqId, unmatch, setExpiryMap, hasBlockingIssues, issueCounts, navigate, RequirementRow
 }) {
   return (

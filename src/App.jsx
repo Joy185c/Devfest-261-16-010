@@ -1,8 +1,8 @@
 import React, { useState, useRef } from 'react';
 import { translations } from './data/translations';
 import {
-  validateRequirementsJson, calcStatus, isBlocking,
-  hashFileBytes, findDuplicateFileIds, formatBytes, getPdfPageCount
+  validateRequirementsJson, calcStatus,
+  hashFileBytes, findDuplicateFileIds, getPdfPageCount
 } from './utils/tenderUtils';
 import { generateTenderPackage } from './utils/pdfGenerator';
 import OnboardingModal from './components/OnboardingModal';
@@ -18,6 +18,8 @@ import CompleteView from './components/views/CompleteView';
 
 const MAX_FILES = 30;
 const MAX_TOTAL_MB = 50;
+import AICopilot from './components/AICopilot';
+
 let fileIdCounter = 0;
 const newId = () => ++fileIdCounter;
 
@@ -292,6 +294,20 @@ export default function App() {
           onClose={() => setMatchModalReqId(null)} t={t}
         />
       )}
+
+      <AICopilot 
+        aiConfig={aiConfig}
+        tenderData={tenderData}
+        uploadedFiles={uploadedFiles}
+        matchMap={matchMap}
+        expiryMap={expiryMap}
+        duplicateFileIds={duplicateFileIds}
+        workflowStates={workflowStates}
+        navigate={navigate}
+        onOpenAiSetup={() => setShowAiSetup(true)}
+        lang={lang}
+        t={t}
+      />
     </AppShell>
   );
 }

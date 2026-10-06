@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Settings, HelpCircle, FileText, Upload, Activity, CheckSquare, Download, Folder, Sparkles } from 'lucide-react';
+import { Home, Settings, HelpCircle, Folder, Sparkles } from 'lucide-react';
 import './Sidebar.css';
 
 export default function Sidebar({ t, currentRoute, navigate, workflowStates, aiEnabled }) {

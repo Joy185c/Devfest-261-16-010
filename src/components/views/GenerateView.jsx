@@ -1,9 +1,9 @@
 import React from 'react';
-import { Download, Loader2, AlertCircle } from 'lucide-react';
+import { Download, Loader2 } from 'lucide-react';
 import './WorkflowViews.css';
 
 export default function GenerateView({ 
-  t, tenderData, matchedFileMap, hasBlockingIssues, generating, handleGenerate, issueCounts
+  tenderData, matchedFileMap, hasBlockingIssues, generating, handleGenerate, issueCounts
 }) {
   const docsCount = Object.keys(matchedFileMap).length;
   const totalPages = Object.values(matchedFileMap).reduce((sum, f) => sum + f.pageCount, 0);

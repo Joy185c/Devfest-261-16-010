@@ -138,8 +138,6 @@ export default function AICopilot({
     return <div dangerouslySetInnerHTML={{ __html: html }} />;
   };
 
-  if (!tenderData && !isOpen) return null; // Don't show button if no tender data loaded
-
   return (
     <div className="ai-copilot-wrapper">
       {isOpen && (

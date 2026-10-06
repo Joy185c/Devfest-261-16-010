@@ -1,7 +1,24 @@
 import { calcStatus } from './tenderUtils';
 
 export function buildAIContext(tenderData, uploadedFiles, matchMap, expiryMap, duplicateFileIds, workflowStates) {
-  if (!tenderData) return null;
+  if (!tenderData) {
+    return {
+      tender: null,
+      workflow: { currentStates: workflowStates },
+      summary: {
+        totalRequirements: 0,
+        uploadedDocuments: 0,
+        matchedDocuments: 0,
+        duplicates: 0,
+        missingMandatory: 0,
+        expiryNeeded: 0,
+        expired: 0,
+        readyToGenerate: false
+      },
+      requirements: [],
+      documents: []
+    };
+  }
 
   const requirements = tenderData.requirements.map(req => {
     const statusObj = calcStatus(req, matchMap[req.id], expiryMap, uploadedFiles, duplicateFileIds, tenderData.tender.submission_deadline);

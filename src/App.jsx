@@ -1,307 +1,743 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { translations } from './data/translations';
-import { validateBuildingData } from './utils/validator';
-import { calculateShortestPath } from './utils/dijkstra';
-import BuildingMap from './components/BuildingMap';
-import { 
-  Upload, BedDouble, ArrowRightLeft, DoorOpen, LogOut, XOctagon, MousePointer2, Ban, Unplug, Lock, X, CheckCircle2, RotateCcw, ShieldCheck, Layers
+import {
+  validateRequirementsJson, calcStatus, isBlocking,
+  hashFileBytes, findDuplicateFileIds, formatBytes, getPdfPageCount
+} from './utils/tenderUtils';
+import { generateTenderPackage } from './utils/pdfGenerator';
+import {
+  FileText, Upload, X, CheckCircle2, AlertCircle, AlertTriangle,
+  Clock, Copy, Info, Download, RefreshCw, ChevronDown, Search,
+  FolderOpen, Loader2, FileX, ArrowUpDown
 } from 'lucide-react';
 
-function App() {
-  const [lang] = useState('en');
+let fileIdCounter = 0;
+const newId = () => ++fileIdCounter;
+
+const MAX_FILES = 30;
+const MAX_TOTAL_MB = 50;
+
+export default function App() {
+  const [lang, setLang] = useState('en');
   const t = translations[lang];
 
-  const [buildingData, setBuildingData] = useState(null);
-  const [initialHazards, setInitialHazards] = useState(null);
-  const [hazards, setHazards] = useState({ blockedNodes: [], blockedEdges: [], closedExits: [] });
-  const [selectedStart, setSelectedStart] = useState(null);
-  const [routeData, setRouteData] = useState({ path: null, cost: null, error: null });
-  const [importError, setImportError] = useState(null);
-  
-  const [interactionMode, setInteractionMode] = useState('select'); // select | blockNode | blockEdge | closeExit
+  // ─── State ───────────────────────────────────────────────────────────────
+  const [tenderData, setTenderData] = useState(null);      // { tender, requirements }
+  const [loadingReqs, setLoadingReqs] = useState(false);
+  const [reqsError, setReqsError] = useState(null);
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const fileInputRef = useRef(null);
+  const [uploadedFiles, setUploadedFiles] = useState([]);  // array of FileRecord
+  const [matchMap, setMatchMap] = useState({});            // { reqId: fileId }
+  const [expiryMap, setExpiryMap] = useState({});          // { reqId: 'YYYY-MM-DD' }
 
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', 'light'); // Always light mode for this premium look
-  }, []);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [dragOver, setDragOver] = useState(false);
+  const [uploadErrors, setUploadErrors] = useState([]);
+  const [processingFiles, setProcessingFiles] = useState(false);
 
-  useEffect(() => {
-    if (buildingData && selectedStart) {
-      const result = calculateShortestPath(buildingData, selectedStart, hazards);
-      setRouteData(result);
-    } else {
-      setRouteData({ path: null, cost: null, error: null });
-    }
-  }, [selectedStart, hazards, buildingData]);
+  const [matchModalReqId, setMatchModalReqId] = useState(null);
 
-  const commitImportedData = (json) => {
-    setBuildingData(json);
-    const initHazards = {
-      blockedNodes: [...json.initial_state.blocked_nodes],
-      blockedEdges: [...json.initial_state.blocked_edges],
-      closedExits: [...json.initial_state.closed_exits]
-    };
-    setInitialHazards(initHazards);
-    setHazards(JSON.parse(JSON.stringify(initHazards))); 
-    setSelectedStart(null);
-    setRouteData({ path: null, cost: null, error: null });
-    setImportError(null);
-    setInteractionMode('select');
-    setIsModalOpen(false);
+  const [generating, setGenerating] = useState(false);
+  const [generationResult, setGenerationResult] = useState(null); // { bytes, filename, totalPages, docsCount }
+  const [generationError, setGenerationError] = useState(null);
+
+  const reqsFileRef = useRef(null);
+  const pdfFileRef = useRef(null);
+
+  // ─── Derived ─────────────────────────────────────────────────────────────
+  const duplicateFileIds = findDuplicateFileIds(uploadedFiles);
+
+  // reverse map: fileId → reqId
+  const fileToReqMap = {};
+  Object.entries(matchMap).forEach(([reqId, fileId]) => { fileToReqMap[fileId] = reqId; });
+
+  const getMatchedFile = (reqId) => {
+    const fileId = matchMap[reqId];
+    return fileId ? uploadedFiles.find(f => f.id === fileId) : null;
   };
 
-  const handleFileUpload = (e) => {
-    const file = e.target.files[0];
+  const getReqStatus = (req) => {
+    const file = getMatchedFile(req.id);
+    return calcStatus(req, file, expiryMap[req.id], tenderData?.tender.submission_deadline, duplicateFileIds);
+  };
+
+  const sortedReqs = tenderData
+    ? [...tenderData.requirements].sort((a, b) => a.order - b.order)
+    : [];
+
+  const filteredReqs = sortedReqs.filter(r => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return r.title_en.toLowerCase().includes(q) || r.title_bn.includes(q) || r.id.toLowerCase().includes(q);
+  });
+
+  const issueCounts = tenderData ? {
+    missing: sortedReqs.filter(r => getReqStatus(r) === 'missing').length,
+    expiryNeeded: sortedReqs.filter(r => getReqStatus(r) === 'expiryNeeded').length,
+    expired: sortedReqs.filter(r => getReqStatus(r) === 'expired').length,
+    duplicate: sortedReqs.filter(r => getReqStatus(r) === 'duplicate').length,
+  } : { missing: 0, expiryNeeded: 0, expired: 0, duplicate: 0 };
+
+  const readyCount = tenderData ? sortedReqs.filter(r => getReqStatus(r) === 'ok' || getReqStatus(r) === 'optional').length : 0;
+  const totalReqs = sortedReqs.length;
+  const hasBlockingIssues = Object.values(issueCounts).some(c => c > 0);
+
+  const totalUploadedSize = uploadedFiles.reduce((s, f) => s + f.size, 0);
+
+  // ─── Requirements Loading ────────────────────────────────────────────────
+  const handleReqsFile = (file) => {
     if (!file) return;
-
+    setLoadingReqs(true);
+    setReqsError(null);
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = (e) => {
       try {
-        const json = JSON.parse(event.target.result);
-        validateBuildingData(json);
-        commitImportedData(json);
+        const json = JSON.parse(e.target.result);
+        validateRequirementsJson(json);
+        setTenderData(json);
+        setMatchMap({});
+        setExpiryMap({});
+        setUploadedFiles([]);
+        setGenerationResult(null);
       } catch (err) {
-        setImportError(t.invalidFile || "Invalid file format or validation failed.");
-        setIsModalOpen(false);
+        const msg = err.message === 'malformed' ? t.errorMalformedReqs : t.errorInvalidJson;
+        setReqsError(msg);
       }
+      setLoadingReqs(false);
     };
+    reader.onerror = () => { setReqsError(t.errorInvalidJson); setLoadingReqs(false); };
     reader.readAsText(file);
-    e.target.value = null;
+    reqsFileRef.current.value = null;
   };
 
-  const handleReset = () => {
-    if (initialHazards) {
-      setHazards(JSON.parse(JSON.stringify(initialHazards)));
-      setSelectedStart(null);
+  // ─── PDF Upload ──────────────────────────────────────────────────────────
+  const processFiles = useCallback(async (rawFiles) => {
+    const errors = [];
+    const pdfs = Array.from(rawFiles).filter(f => {
+      if (f.type !== 'application/pdf' && !f.name.toLowerCase().endsWith('.pdf')) {
+        errors.push(`"${f.name}" — ${t.errorNonPdf}`);
+        return false;
+      }
+      return true;
+    });
+
+    if (uploadedFiles.length + pdfs.length > MAX_FILES) {
+      errors.push(t.errorFileLimitExceeded);
+      setUploadErrors(errors);
+      return;
     }
-  };
 
-  const handleNodeClick = (node) => {
-    if (interactionMode === 'select') {
-      if (node.type === 'exit') return; 
-      setSelectedStart(node.id);
-    } else if (interactionMode === 'blockNode') {
-      if (node.type === 'exit') return;
-      toggleNodeBlock(node.id);
-    } else if (interactionMode === 'closeExit') {
-      if (node.type !== 'exit') return;
-      toggleExitClose(node.id);
+    const newTotalSize = totalUploadedSize + pdfs.reduce((s, f) => s + f.size, 0);
+    if (newTotalSize > MAX_TOTAL_MB * 1024 * 1024) {
+      errors.push(t.errorSizeLimitExceeded);
+      setUploadErrors(errors);
+      return;
     }
-  };
 
-  const handleEdgeClick = (edge) => {
-    if (interactionMode === 'blockEdge') {
-      toggleEdgeBlock(edge.id);
+    setProcessingFiles(true);
+    setUploadErrors(errors);
+
+    const newRecords = [];
+    for (const file of pdfs) {
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const hash = await hashFileBytes(arrayBuffer);
+        const pageCount = await getPdfPageCount(arrayBuffer);
+        newRecords.push({
+          id: newId(),
+          name: file.name,
+          size: file.size,
+          pageCount,
+          hash,
+          arrayBuffer,
+        });
+      } catch (e) {
+        errors.push(`"${file.name}" — ${t.errorPdfProcessing}`);
+      }
     }
+
+    setUploadedFiles(prev => [...prev, ...newRecords]);
+    setUploadErrors(errors);
+    setProcessingFiles(false);
+    if (pdfFileRef.current) pdfFileRef.current.value = null;
+  }, [uploadedFiles.length, totalUploadedSize, t]);
+
+  const handlePdfDrop = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+    processFiles(e.dataTransfer.files);
   };
 
-  const toggleNodeBlock = (nodeId) => {
-    setHazards(prev => {
-      const isBlocked = prev.blockedNodes.includes(nodeId);
-      return { ...prev, blockedNodes: isBlocked ? prev.blockedNodes.filter(id => id !== nodeId) : [...prev.blockedNodes, nodeId] };
+  const handlePdfInput = (e) => processFiles(e.target.files);
+
+  const removeFile = (fileId) => {
+    setUploadedFiles(prev => prev.filter(f => f.id !== fileId));
+    // Also remove from matchMap
+    setMatchMap(prev => {
+      const next = { ...prev };
+      Object.entries(next).forEach(([rId, fId]) => { if (fId === fileId) delete next[rId]; });
+      return next;
     });
   };
 
-  const toggleEdgeBlock = (edgeId) => {
-    setHazards(prev => {
-      const isBlocked = prev.blockedEdges.includes(edgeId);
-      return { ...prev, blockedEdges: isBlocked ? prev.blockedEdges.filter(id => id !== edgeId) : [...prev.blockedEdges, edgeId] };
+  // ─── Matching ────────────────────────────────────────────────────────────
+  const doMatch = (reqId, fileId) => {
+    setMatchMap(prev => {
+      const next = { ...prev };
+      // Remove fileId from any other req
+      Object.entries(next).forEach(([r, f]) => { if (f === fileId && r !== reqId) delete next[r]; });
+      next[reqId] = fileId;
+      return next;
     });
+    setMatchModalReqId(null);
   };
 
-  const toggleExitClose = (exitId) => {
-    setHazards(prev => {
-      const isClosed = prev.closedExits.includes(exitId);
-      return { ...prev, closedExits: isClosed ? prev.closedExits.filter(id => id !== exitId) : [...prev.closedExits, exitId] };
-    });
+  const unmatch = (reqId) => {
+    setMatchMap(prev => { const n = { ...prev }; delete n[reqId]; return n; });
   };
 
-  const totalRooms = buildingData ? buildingData.nodes.filter(n => n.type === 'room').length : 0;
-  const totalExits = buildingData ? buildingData.nodes.filter(n => n.type === 'exit').length : 0;
-  const totalCorridors = buildingData ? buildingData.edges.length : 0;
-  const totalStairs = buildingData ? buildingData.nodes.filter(n => n.id.toLowerCase().includes('stair')).length : 0;
+  const availableForMatch = (reqId) => {
+    const alreadyUsed = new Set(Object.values(matchMap).filter(fId => matchMap && fId !== matchMap[reqId]));
+    return uploadedFiles.filter(f => !alreadyUsed.has(f.id));
+  };
 
+  // ─── Generate Package ────────────────────────────────────────────────────
+  const handleGenerate = async () => {
+    if (hasBlockingIssues || !tenderData) return;
+    setGenerating(true);
+    setGenerationError(null);
+    try {
+      // Build file map with arrayBuffer
+      const matchedFileMap = {};
+      Object.entries(matchMap).forEach(([reqId, fileId]) => {
+        const file = uploadedFiles.find(f => f.id === fileId);
+        if (file) matchedFileMap[reqId] = file;
+      });
+
+      const bytes = await generateTenderPackage(
+        tenderData.tender,
+        tenderData.requirements,
+        matchedFileMap,
+        expiryMap
+      );
+
+      const filename = `${tenderData.tender.tender_id}_Package.pdf`;
+      const totalPages = countPdfPages(bytes);
+      const docsCount = Object.keys(matchedFileMap).length;
+
+      setGenerationResult({ bytes, filename, totalPages, docsCount });
+    } catch (e) {
+      console.error(e);
+      setGenerationError(t.errorGenerationFailed);
+    }
+    setGenerating(false);
+  };
+
+  const countPdfPages = (bytes) => {
+    const text = new TextDecoder('latin1').decode(bytes);
+    const matches = text.match(/\/Type\s*\/Page[^s]/g);
+    return matches ? matches.length : 1;
+  };
+
+  const downloadPackage = () => {
+    if (!generationResult) return;
+    const blob = new Blob([generationResult.bytes], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = generationResult.filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  // ─── Render ───────────────────────────────────────────────────────────────
   return (
-    <div style={{ padding: '24px', background: '#f8fafc', height: '100vh', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      
-      {/* Top Header Card */}
-      <div style={{ background: 'white', borderRadius: '16px', padding: '16px 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <div style={{ width: '48px', height: '48px', background: '#10b981', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
-            <LogOut size={24} />
-          </div>
+    <div className="tpb-root">
+      {/* ── HEADER ── */}
+      <header className="tpb-header">
+        <div className="header-brand">
+          <div className="header-icon"><FileText size={22} /></div>
           <div>
-            <h1 style={{ fontSize: '20px', fontWeight: '800', color: '#0f172a', margin: 0, letterSpacing: '-0.5px' }}>Building Floor Map</h1>
-            <p style={{ fontSize: '13px', color: '#64748b', margin: 0, fontWeight: 500 }}>Navigate through rooms and corridors</p>
+            <h1 className="header-title">{t.appTitle}</h1>
+            <p className="header-subtitle">{t.appSubtitle}</p>
           </div>
         </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
-          {/* Interaction Mode Toggles */}
-          <div style={{ display: 'flex', background: '#f1f5f9', padding: '4px', borderRadius: '12px', gap: '4px' }}>
-            <button onClick={() => setInteractionMode('select')} style={{ padding: '8px 12px', borderRadius: '8px', border: 'none', background: interactionMode === 'select' ? 'white' : 'transparent', color: interactionMode === 'select' ? '#0f172a' : '#64748b', fontWeight: 600, fontSize: '13px', cursor: 'pointer', boxShadow: interactionMode === 'select' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none' }}><MousePointer2 size={14} style={{verticalAlign:'text-bottom', marginRight:'4px'}}/> Select Start</button>
-            <button onClick={() => setInteractionMode('blockNode')} style={{ padding: '8px 12px', borderRadius: '8px', border: 'none', background: interactionMode === 'blockNode' ? 'white' : 'transparent', color: interactionMode === 'blockNode' ? '#ef4444' : '#64748b', fontWeight: 600, fontSize: '13px', cursor: 'pointer', boxShadow: interactionMode === 'blockNode' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none' }}><Ban size={14} style={{verticalAlign:'text-bottom', marginRight:'4px'}}/> Block Node</button>
-            <button onClick={() => setInteractionMode('blockEdge')} style={{ padding: '8px 12px', borderRadius: '8px', border: 'none', background: interactionMode === 'blockEdge' ? 'white' : 'transparent', color: interactionMode === 'blockEdge' ? '#f59e0b' : '#64748b', fontWeight: 600, fontSize: '13px', cursor: 'pointer', boxShadow: interactionMode === 'blockEdge' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none' }}><Unplug size={14} style={{verticalAlign:'text-bottom', marginRight:'4px'}}/> Block Edge</button>
-          </div>
-
-          <div style={{ height: '32px', width: '1px', background: '#e2e8f0' }}></div>
-          
-          <button onClick={() => setIsModalOpen(true)} style={{ background: '#ecfdf5', color: '#059669', border: 'none', padding: '10px 16px', borderRadius: '24px', fontWeight: '700', fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Upload size={16} /> Import
-          </button>
-          
-          <div style={{ display: 'flex', gap: '16px', color: '#64748b', fontSize: '13px', fontWeight: 600 }}>
-            <span>Total Rooms: <span style={{color: '#0f172a'}}>{totalRooms}</span></span>
-            <div style={{ width: '1px', height: '16px', background: '#e2e8f0', alignSelf: 'center' }}></div>
-            <span>Exits: <span style={{color: '#0f172a'}}>{totalExits}</span></span>
+        <div className="header-actions">
+          <div className="lang-switcher">
+            <button className={`lang-btn ${lang === 'en' ? 'active' : ''}`} onClick={() => setLang('en')}>English</button>
+            <button className={`lang-btn ${lang === 'bn' ? 'active' : ''}`} onClick={() => setLang('bn')}>বাংলা</button>
           </div>
         </div>
-      </div>
+      </header>
 
-      <div style={{ display: 'flex', gap: '24px', flex: 1, minHeight: 0 }}>
-        {/* Main Map Area */}
-        <div style={{ flex: 1, background: 'white', borderRadius: '16px', boxShadow: '0 2px 10px rgba(0,0,0,0.02)', position: 'relative' }}>
-          {buildingData ? (
-            <BuildingMap 
-              buildingData={buildingData} 
-              hazards={hazards} 
-              selectedStart={selectedStart}
-              routePath={routeData.path}
-              onNodeClick={handleNodeClick}
-              onEdgeClick={handleEdgeClick}
-            />
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#94a3b8' }}>
-              <Upload size={48} style={{ marginBottom: '16px', color: '#cbd5e1' }}/>
-              <h2 style={{ margin: 0, color: '#64748b' }}>No Building Data Loaded</h2>
-              <p style={{ marginTop: '8px' }}>Click Import in the top header to load your map JSON.</p>
-            </div>
-          )}
-        </div>
-
-        {/* Right Sidebar */}
-        <div style={{ width: '300px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          
-          {/* Legend Card */}
-          <div style={{ background: 'white', borderRadius: '16px', padding: '24px', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }}>
-            <h3 style={{ fontSize: '16px', fontWeight: '800', margin: '0 0 16px 0', borderBottom: '1px solid #f1f5f9', paddingBottom: '16px' }}>Legend</h3>
-            
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#f0f6ff', color: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><BedDouble size={16}/></div>
-                <span style={{ fontSize: '13px', fontWeight: 600, color: '#475569' }}>Room</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#f0f6ff', color: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ArrowRightLeft size={16}/></div>
-                <span style={{ fontSize: '13px', fontWeight: 600, color: '#475569' }}>Corridor</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#f0f6ff', color: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Layers size={16}/></div>
-                <span style={{ fontSize: '13px', fontWeight: 600, color: '#475569' }}>Staircase</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#10b981', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><LogOut size={16}/></div>
-                <span style={{ fontSize: '13px', fontWeight: 600, color: '#475569' }}>Exit (Open)</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#ef4444', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><XOctagon size={16}/></div>
-                <span style={{ fontSize: '13px', fontWeight: 600, color: '#475569' }}>Exit / Room (Closed)</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <div style={{ width: '36px', height: '6px', borderRadius: '3px', background: '#fca5a5' }}></div>
-                <span style={{ fontSize: '13px', fontWeight: 600, color: '#475569' }}>Blocked Path</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <div style={{ width: '36px', height: '4px', borderRadius: '2px', background: '#cbd5e1' }}></div>
-                <span style={{ fontSize: '13px', fontWeight: 600, color: '#475569' }}>Available Path</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#f8fafc', border: '1px solid #e2e8f0', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700 }}>#</div>
-                <span style={{ fontSize: '13px', fontWeight: 600, color: '#475569' }}>Connection Cost</span>
-              </div>
-            </div>
+      {/* ── MAIN ── */}
+      <main className="tpb-main">
+        {!tenderData ? (
+          /* EMPTY STATE */
+          <div className="empty-state">
+            <div className="empty-icon"><FolderOpen size={48} /></div>
+            <h2>{t.emptyTitle}</h2>
+            <p>{t.emptySubtitle}</p>
+            <input type="file" accept=".json" ref={reqsFileRef} onChange={e => handleReqsFile(e.target.files[0])} style={{ display: 'none' }} id="reqs-file-input" />
+            {loadingReqs ? (
+              <div className="loading-inline"><Loader2 size={18} className="spin" />{t.loadingRequirements}</div>
+            ) : (
+              <button className="btn-primary btn-lg" onClick={() => reqsFileRef.current.click()}>
+                <FolderOpen size={18} /> {t.openRequirements}
+              </button>
+            )}
+            {reqsError && <div className="error-banner"><AlertCircle size={16} />{reqsError}</div>}
           </div>
+        ) : (
+          <>
+            {/* ── TENDER OVERVIEW ── */}
+            <section className="overview-section">
+              <div className="overview-card">
+                <div className="overview-header">
+                  <FileText size={18} className="section-icon" />
+                  <h2 className="section-title">{t.tenderOverview}</h2>
+                  <div className="overview-actions">
+                    <input type="file" accept=".json" ref={reqsFileRef} onChange={e => handleReqsFile(e.target.files[0])} style={{ display: 'none' }} id="reqs-file-input2" />
+                    <button className="btn-ghost-sm" onClick={() => reqsFileRef.current.click()}><RefreshCw size={14} /> Load New</button>
+                  </div>
+                </div>
+                <div className="overview-grid">
+                  <div className="overview-field">
+                    <span className="field-label">{t.tenderId}</span>
+                    <span className="field-value mono">{tenderData.tender.tender_id}</span>
+                  </div>
+                  <div className="overview-field">
+                    <span className="field-label">{t.tenderTitle}</span>
+                    <span className="field-value">{tenderData.tender.title}</span>
+                  </div>
+                  <div className="overview-field">
+                    <span className="field-label">{t.procuringEntity}</span>
+                    <span className="field-value">{tenderData.tender.procuring_entity}</span>
+                  </div>
+                  <div className="overview-field">
+                    <span className="field-label">{t.bidder}</span>
+                    <span className="field-value">{tenderData.tender.bidder}</span>
+                  </div>
+                  <div className="overview-field deadline-field">
+                    <span className="field-label">{t.submissionDeadline}</span>
+                    <span className="field-value deadline-val">📅 {tenderData.tender.submission_deadline}</span>
+                  </div>
+                </div>
+              </div>
 
-          {/* Quick Info Card */}
-          <div style={{ background: 'white', borderRadius: '16px', padding: '24px', boxShadow: '0 2px 10px rgba(0,0,0,0.02)', flex: 1 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #f1f5f9', paddingBottom: '16px' }}>
-              <h3 style={{ fontSize: '16px', fontWeight: '800', margin: 0 }}>Quick Info</h3>
-              <button onClick={handleReset} style={{ background: 'transparent', border: 'none', color: '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: 600 }}><RotateCcw size={14}/> Reset</button>
-            </div>
-            
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#10b981', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><LogOut size={18}/></div>
-                <div>
-                  <div style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', lineHeight: 1 }}>{totalExits}</div>
-                  <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Total Exits</div>
+              {/* Readiness */}
+              <div className="readiness-card">
+                <div className="readiness-header">
+                  <span className="readiness-label">{t.documentReadiness}</span>
+                </div>
+                <div className="readiness-circle-area">
+                  <div className="readiness-donut">
+                    <svg viewBox="0 0 80 80" className="donut-svg">
+                      <circle cx="40" cy="40" r="32" fill="none" stroke="#e2e8f0" strokeWidth="8" />
+                      <circle cx="40" cy="40" r="32" fill="none"
+                        stroke={hasBlockingIssues ? '#f59e0b' : '#10b981'}
+                        strokeWidth="8"
+                        strokeDasharray={`${(readyCount / (totalReqs || 1)) * 201} 201`}
+                        strokeLinecap="round"
+                        transform="rotate(-90 40 40)" />
+                    </svg>
+                    <div className="donut-center">
+                      <span className="donut-num">{readyCount}</span>
+                      <span className="donut-denom">/ {totalReqs}</span>
+                    </div>
+                  </div>
+                  <div className="readiness-status">
+                    <span className={`readiness-badge ${hasBlockingIssues ? 'warn' : 'ok'}`}>
+                      {hasBlockingIssues ? t.actionRequired : t.readyForSubmission}
+                    </span>
+                    <div className="readiness-bar-wrap">
+                      <div className="readiness-bar" style={{ width: `${(readyCount / (totalReqs || 1)) * 100}%`, background: hasBlockingIssues ? '#f59e0b' : '#10b981' }} />
+                    </div>
+                  </div>
                 </div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#f0f6ff', color: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><BedDouble size={18}/></div>
-                <div>
-                  <div style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', lineHeight: 1 }}>{totalRooms}</div>
-                  <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Total Rooms</div>
+
+              {/* Issues Summary */}
+              <div className="issues-card">
+                <div className="issues-title">{t.issuesSummary}</div>
+                <div className="issues-list">
+                  <IssueRow icon="missing" label={t.missing} count={issueCounts.missing} color="danger" />
+                  <IssueRow icon="expiry" label={t.expiryDateNeeded} count={issueCounts.expiryNeeded} color="warning" />
+                  <IssueRow icon="expired" label={t.expired} count={issueCounts.expired} color="danger" />
+                  <IssueRow icon="duplicate" label={t.duplicate} count={issueCounts.duplicate} color="purple" />
+                </div>
+                {!hasBlockingIssues && (
+                  <div className="all-ready-msg"><CheckCircle2 size={14} />{t.allReady}</div>
+                )}
+              </div>
+            </section>
+
+            {/* ── WORKSPACE ── */}
+            <section className="workspace">
+              {/* LEFT: Required Documents */}
+              <div className="req-panel">
+                <div className="panel-toolbar">
+                  <div className="panel-title-row">
+                    <FileText size={18} className="section-icon" />
+                    <div>
+                      <h2 className="section-title">{t.requiredDocuments}</h2>
+                      <p className="section-subtitle">{t.requiredDocsSubtitle}</p>
+                    </div>
+                  </div>
+                  <div className="toolbar-right">
+                    <div className="search-box">
+                      <Search size={14} className="search-icon" />
+                      <input
+                        className="search-input"
+                        placeholder={t.searchDocuments}
+                        value={searchQuery}
+                        onChange={e => setSearchQuery(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="req-table-wrap">
+                  <table className="req-table">
+                    <thead>
+                      <tr>
+                        <th style={{ width: 36 }}>{t.docNo}</th>
+                        <th>{t.documentName}</th>
+                        <th style={{ width: 90 }}>{t.type}</th>
+                        <th style={{ width: 70 }}>{t.expiryRequired}</th>
+                        <th>{t.matchedFile}</th>
+                        <th style={{ width: 55 }}>{t.pages}</th>
+                        <th style={{ width: 130 }}>{t.expiryDate}</th>
+                        <th style={{ width: 140 }}>{t.status}</th>
+                        <th style={{ width: 110 }}>{t.action}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredReqs.map(req => {
+                        const file = getMatchedFile(req.id);
+                        const status = getReqStatus(req);
+                        return (
+                          <RequirementRow
+                            key={req.id}
+                            req={req}
+                            lang={lang}
+                            file={file}
+                            status={status}
+                            expiryDate={expiryMap[req.id] || ''}
+                            onMatchClick={() => setMatchModalReqId(req.id)}
+                            onChangeClick={() => setMatchModalReqId(req.id)}
+                            onRemoveMatch={() => unmatch(req.id)}
+                            onExpiryChange={(val) => setExpiryMap(prev => ({ ...prev, [req.id]: val }))}
+                            t={t}
+                          />
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#f0f6ff', color: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Layers size={18}/></div>
-                <div>
-                  <div style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', lineHeight: 1 }}>{totalStairs}</div>
-                  <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Staircases</div>
+
+              {/* RIGHT: Upload Panel */}
+              <div className="upload-panel">
+                <div className="panel-toolbar">
+                  <div className="panel-title-row">
+                    <Upload size={18} className="section-icon" />
+                    <h2 className="section-title">{t.uploadedPdfFiles}</h2>
+                  </div>
+                  <span className="files-count-badge">
+                    {uploadedFiles.length} {t.files} • {formatBytes(totalUploadedSize)} / {MAX_TOTAL_MB} {t.mb}
+                  </span>
                 </div>
+
+                {/* Drop zone */}
+                <div
+                  className={`drop-zone ${dragOver ? 'drag-active' : ''}`}
+                  onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+                  onDragLeave={() => setDragOver(false)}
+                  onDrop={handlePdfDrop}
+                >
+                  <Upload size={28} className="drop-icon" />
+                  <p className="drop-text">{t.dragDropHere}</p>
+                  <input type="file" accept=".pdf" multiple ref={pdfFileRef} onChange={handlePdfInput} style={{ display: 'none' }} id="pdf-input" />
+                  <button className="btn-primary" onClick={() => pdfFileRef.current.click()}>
+                    {t.browseFiles}
+                  </button>
+                  <p className="drop-hint">{t.pdfOnly}</p>
+                </div>
+
+                {processingFiles && (
+                  <div className="loading-inline"><Loader2 size={16} className="spin" />{t.loadingPdf}</div>
+                )}
+
+                {uploadErrors.length > 0 && (
+                  <div className="upload-errors">
+                    {uploadErrors.map((e, i) => (
+                      <div key={i} className="error-banner sm"><AlertCircle size={13} />{e}</div>
+                    ))}
+                    <button className="btn-ghost-xs" onClick={() => setUploadErrors([])}>✕</button>
+                  </div>
+                )}
+
+                {/* File list */}
+                <div className="file-list">
+                  {uploadedFiles.map(file => {
+                    const reqId = fileToReqMap[file.id];
+                    const req = reqId ? tenderData?.requirements.find(r => r.id === reqId) : null;
+                    const isDup = duplicateFileIds.has(file.id);
+                    return (
+                      <UploadedFileRow
+                        key={file.id}
+                        file={file}
+                        matchedReq={req}
+                        isDuplicate={isDup}
+                        onRemove={() => removeFile(file.id)}
+                        t={t}
+                      />
+                    );
+                  })}
+                </div>
+
+                {uploadedFiles.length > 0 && (
+                  <div className="upload-footer-note">
+                    <Info size={13} />
+                    <span>Each document can be matched with at most one file. Each file can be used for at most one document.</span>
+                  </div>
+                )}
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#f8fafc', border: '1px solid #e2e8f0', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ArrowRightLeft size={18}/></div>
-                <div>
-                  <div style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', lineHeight: 1 }}>{totalCorridors}</div>
-                  <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Corridor Connections</div>
+            </section>
+
+            {/* ── GENERATE BAR ── */}
+            <div className="generate-bar">
+              {hasBlockingIssues ? (
+                <div className="generate-blocker">
+                  <AlertCircle size={18} />
+                  <div>
+                    <span className="blocker-title">{t.cannotGenerate}</span>
+                    <span className="blocker-sub">{t.resolveBlocking}</span>
+                  </div>
                 </div>
+              ) : (
+                <div className="generate-ready">
+                  <CheckCircle2 size={18} className="ready-icon" />
+                  <span>{t.allReady}</span>
+                </div>
+              )}
+              <div className="generate-bar-right">
+                <button className="btn-ghost" onClick={() => {
+                  setUploadedFiles([]); setMatchMap({}); setExpiryMap({}); setGenerationResult(null);
+                }}>
+                  <RefreshCw size={15} /> {t.clearAll}
+                </button>
+                <button
+                  className={`btn-generate ${hasBlockingIssues || generating ? 'disabled' : ''}`}
+                  onClick={handleGenerate}
+                  disabled={hasBlockingIssues || generating}
+                >
+                  {generating ? <><Loader2 size={16} className="spin" />{t.generating}</> : <><Download size={16} />{t.generatePackage}</>}
+                </button>
               </div>
             </div>
 
-            {/* Route Status Summary */}
-            {routeData.path && (
-              <div style={{ marginTop: '32px', padding: '16px', background: '#eff6ff', borderRadius: '12px', border: '1px solid #bfdbfe' }}>
-                <div style={{ fontSize: '11px', color: '#3b82f6', fontWeight: 700, marginBottom: '4px', textTransform: 'uppercase' }}>Optimal Route Found</div>
-                <div style={{ fontSize: '24px', fontWeight: 800, color: '#1e3a8a' }}>{routeData.cost} <span style={{fontSize:'12px', color:'#60a5fa'}}>Steps</span></div>
+            {generationError && <div className="error-banner"><AlertCircle size={16} />{generationError}</div>}
+
+            {/* ── SUCCESS STATE ── */}
+            {generationResult && (
+              <div className="success-state">
+                <div className="success-icon"><CheckCircle2 size={36} /></div>
+                <div className="success-info">
+                  <h3>{t.successTitle}</h3>
+                  <div className="success-meta">
+                    <span><strong>{t.successFilename}:</strong> {generationResult.filename}</span>
+                    <span><strong>{t.successTotalPages}:</strong> {generationResult.totalPages}</span>
+                    <span><strong>{t.successDocumentsIncluded}:</strong> {generationResult.docsCount}</span>
+                  </div>
+                </div>
+                <button className="btn-download" onClick={downloadPackage}>
+                  <Download size={18} /> {t.downloadPackage}
+                </button>
               </div>
             )}
-            {routeData.error && (
-              <div style={{ marginTop: '32px', padding: '16px', background: '#fef2f2', borderRadius: '12px', border: '1px solid #fecaca' }}>
-                <div style={{ fontSize: '11px', color: '#ef4444', fontWeight: 700, marginBottom: '4px', textTransform: 'uppercase' }}>Error</div>
-                <div style={{ fontSize: '14px', fontWeight: 700, color: '#991b1b' }}>{routeData.error === 'noRoute' ? "No clear path to exit!" : "Start point is blocked!"}</div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+          </>
+        )}
+      </main>
 
-      {/* Import Modal */}
-      {isModalOpen && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
-          <div style={{ background: 'white', padding: '32px', borderRadius: '24px', width: '400px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-              <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>Import Building Data</h2>
-              <button onClick={() => setIsModalOpen(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#94a3b8' }}><X size={20}/></button>
-            </div>
-            
-            <input type="file" accept=".json" ref={fileInputRef} onChange={handleFileUpload} style={{ display: 'none' }} />
-            <button 
-              onClick={() => fileInputRef.current?.click()}
-              style={{ width: '100%', padding: '16px', background: '#f8fafc', border: '2px dashed #cbd5e1', borderRadius: '12px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', color: '#64748b', fontWeight: 600 }}
-            >
-              <Upload size={24} color="#94a3b8"/>
-              Click to Upload JSON File
-            </button>
-            {importError && <div style={{ marginTop: '16px', color: '#ef4444', fontSize: '12px', fontWeight: 600, textAlign: 'center' }}>{importError}</div>}
-          </div>
-        </div>
+      {/* ── MATCH MODAL ── */}
+      {matchModalReqId && (
+        <MatchModal
+          req={tenderData.requirements.find(r => r.id === matchModalReqId)}
+          lang={lang}
+          availableFiles={availableForMatch(matchModalReqId)}
+          currentFileId={matchMap[matchModalReqId]}
+          onConfirm={(fileId) => doMatch(matchModalReqId, fileId)}
+          onClose={() => setMatchModalReqId(null)}
+          t={t}
+        />
       )}
     </div>
   );
 }
 
-export default App;
+// ─── IssueRow ──────────────────────────────────────────────────────────────
+function IssueRow({ icon, label, count, color }) {
+  const icons = {
+    missing: <AlertCircle size={14} />,
+    expiry: <Clock size={14} />,
+    expired: <AlertTriangle size={14} />,
+    duplicate: <Copy size={14} />,
+  };
+  return (
+    <div className={`issue-row ${color}`}>
+      <span className="issue-icon">{icons[icon]}</span>
+      <span className="issue-label">{label}</span>
+      <span className="issue-count">{count}</span>
+    </div>
+  );
+}
+
+// ─── StatusBadge ──────────────────────────────────────────────────────────
+function StatusBadge({ status, t }) {
+  const config = {
+    ok: { icon: <CheckCircle2 size={13} />, label: t.statusOK, cls: 'status-ok' },
+    missing: { icon: <AlertCircle size={13} />, label: t.statusMissing, cls: 'status-missing' },
+    expiryNeeded: { icon: <Clock size={13} />, label: t.statusExpiryNeeded, cls: 'status-expiry' },
+    expired: { icon: <AlertTriangle size={13} />, label: t.statusExpired, cls: 'status-expired' },
+    optional: { icon: <Info size={13} />, label: t.statusOptional, cls: 'status-optional' },
+    duplicate: { icon: <Copy size={13} />, label: t.statusDuplicate, cls: 'status-duplicate' },
+  };
+  const c = config[status] || config.missing;
+  return <span className={`status-badge ${c.cls}`}>{c.icon}{c.label}</span>;
+}
+
+// ─── RequirementRow ───────────────────────────────────────────────────────
+function RequirementRow({ req, lang, file, status, expiryDate, onMatchClick, onChangeClick, onRemoveMatch, onExpiryChange, t }) {
+  return (
+    <tr className={`req-row ${isBlocking(status) ? 'row-blocking' : ''}`}>
+      <td className="cell-order">{req.order}</td>
+      <td className="cell-docname">
+        <div className="docname-main">{lang === 'bn' ? req.title_bn : req.title_en}</div>
+        <div className="docname-sub">{lang === 'bn' ? req.title_en : req.title_bn}</div>
+        <div className="docname-id">{req.id}</div>
+      </td>
+      <td>
+        <span className={`type-badge ${req.mandatory ? 'mandatory' : 'optional'}`}>
+          {req.mandatory ? t.mandatory : t.optional}
+        </span>
+      </td>
+      <td className="cell-center">
+        {req.has_expiry ? (
+          <span className="expiry-yes">📅 {t.yes}</span>
+        ) : (
+          <span className="expiry-no">✗ {t.no}</span>
+        )}
+      </td>
+      <td className="cell-matched">
+        {file ? (
+          <div className="matched-file">
+            <FileText size={13} className="file-icon" />
+            <div>
+              <div className="matched-name">{file.name}</div>
+              <div className="matched-sub">{file.pageCount} pages</div>
+            </div>
+          </div>
+        ) : (
+          <span className="not-matched">{t.notMatched}</span>
+        )}
+      </td>
+      <td className="cell-center cell-pages">
+        {file ? file.pageCount : '—'}
+      </td>
+      <td className="cell-expiry">
+        {req.has_expiry && file ? (
+          <input
+            type="date"
+            className={`date-input ${status === 'expired' ? 'date-expired' : status === 'ok' ? 'date-ok' : ''}`}
+            value={expiryDate}
+            onChange={e => onExpiryChange(e.target.value)}
+          />
+        ) : (
+          <span className="dash">—</span>
+        )}
+      </td>
+      <td><StatusBadge status={status} t={t} /></td>
+      <td className="cell-action">
+        {file ? (
+          <div className="action-btns">
+            <button className="btn-action-sm change" onClick={onChangeClick}>{t.change}</button>
+            <button className="btn-action-sm remove" onClick={onRemoveMatch}><X size={12} /></button>
+          </div>
+        ) : (
+          <button className="btn-match-file" onClick={onMatchClick}>{t.matchFile}</button>
+        )}
+      </td>
+    </tr>
+  );
+}
+
+// ─── UploadedFileRow ──────────────────────────────────────────────────────
+function UploadedFileRow({ file, matchedReq, isDuplicate, onRemove, t }) {
+  return (
+    <div className={`file-row ${isDuplicate ? 'file-duplicate' : ''}`}>
+      <div className="file-icon-wrap"><FileText size={20} /></div>
+      <div className="file-info">
+        <div className="file-name">{file.name}</div>
+        <div className="file-meta">{formatBytes(file.size)} • {file.pageCount} {t.pages}</div>
+      </div>
+      <div className="file-status">
+        {isDuplicate ? (
+          <span className="file-badge duplicate"><Copy size={11} /> {t.duplicateContent}</span>
+        ) : matchedReq ? (
+          <span className="file-badge matched"><CheckCircle2 size={11} /> {t.matched} ({matchedReq.id})</span>
+        ) : (
+          <span className="file-badge unmatched">{t.unmatched}</span>
+        )}
+      </div>
+      <button className="file-remove" onClick={onRemove} title={t.removeFile}><X size={14} /></button>
+    </div>
+  );
+}
+
+// ─── MatchModal ────────────────────────────────────────────────────────────
+function MatchModal({ req, lang, availableFiles, currentFileId, onConfirm, onClose, t }) {
+  const [selected, setSelected] = useState(currentFileId || null);
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-box" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3>{t.selectFileToMatch}</h3>
+          <button className="modal-close" onClick={onClose}><X size={18} /></button>
+        </div>
+        <div className="modal-req-name">
+          <strong>{req.id}</strong> — {lang === 'bn' ? req.title_bn : req.title_en}
+        </div>
+        <div className="modal-files">
+          {availableFiles.length === 0 ? (
+            <p className="modal-empty">{t.noAvailableFiles}</p>
+          ) : (
+            availableFiles.map(f => (
+              <div
+                key={f.id}
+                className={`modal-file-row ${selected === f.id ? 'selected' : ''}`}
+                onClick={() => setSelected(f.id)}
+              >
+                <FileText size={16} />
+                <div className="modal-file-info">
+                  <div>{f.name}</div>
+                  <div className="modal-file-meta">{formatBytes(f.size)} • {f.pageCount} pages</div>
+                </div>
+                {selected === f.id && <CheckCircle2 size={16} className="modal-check" />}
+              </div>
+            ))
+          )}
+        </div>
+        <div className="modal-footer">
+          <button className="btn-ghost" onClick={onClose}>{t.cancel}</button>
+          <button className="btn-primary" disabled={!selected} onClick={() => selected && onConfirm(selected)}>
+            {t.confirm}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

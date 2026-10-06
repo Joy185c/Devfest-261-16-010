@@ -109,6 +109,25 @@ export function HomeView({ t, tenderData, navigate, workflowStates }) {
             </button>
           </div>
         </div>
+
+        <div className="dash-card ai-dash-card">
+          <div className="ai-card-content">
+            <div className="ai-card-header">
+              <Sparkles size={24} className="ai-icon" />
+              <h3>AI Assistant</h3>
+            </div>
+            <p>Supercharge your workflow with our intelligent AI. Get smart document matching, risk detection, and instant explanations for any missing or expired documents.</p>
+            <div className="ai-brands mt-2">
+              <span className="badge">Gemini</span>
+              <span className="badge">Groq</span>
+              <span className="badge">OpenAI</span>
+              <span className="badge">Anthropic</span>
+            </div>
+          </div>
+          <button className="btn-ghost ai-btn" onClick={() => navigate('ai')}>
+            Open AI Assistant <ArrowRight size={16} />
+          </button>
+        </div>
       </div>
     </div>
   );

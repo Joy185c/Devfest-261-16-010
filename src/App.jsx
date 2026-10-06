@@ -259,6 +259,7 @@ export default function App() {
       stepperConfig={stepperConfig}
       aiEnabled={!!aiConfig}
       hideStepper={currentRoute === 'home' || currentRoute === 'complete'}
+      hideSidebar={!tenderData && currentRoute === 'home'}
     >
       {showOnboarding && <OnboardingModal t={t} onClose={handleCloseOnboarding} onSetupAi={() => setShowAiSetup(true)} />}
       {showAiSetup && <AISetupModal t={t} onClose={() => setShowAiSetup(false)} onConnect={(provider, apiKey) => { setAiConfig({ provider, apiKey }); setShowAiSetup(false); }} />}

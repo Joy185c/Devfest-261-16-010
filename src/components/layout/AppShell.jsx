@@ -15,7 +15,8 @@ export default function AppShell({
   workflowStates,
   stepperConfig,
   aiEnabled,
-  hideStepper
+  hideStepper,
+  hideSidebar
 }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -24,18 +25,20 @@ export default function AppShell({
   return (
     <div className="app-shell">
       {/* Mobile Drawer Overlay */}
-      {mobileMenuOpen && <div className="mobile-overlay" onClick={toggleMobileMenu} />}
+      {mobileMenuOpen && !hideSidebar && <div className="mobile-overlay" onClick={toggleMobileMenu} />}
       
       {/* Sidebar Container */}
-      <div className={`sidebar-container ${mobileMenuOpen ? 'open' : ''}`}>
-        <Sidebar 
-          t={t} 
-          currentRoute={currentRoute} 
-          navigate={(route) => { navigate(route); setMobileMenuOpen(false); }} 
-          workflowStates={workflowStates}
-          aiEnabled={aiEnabled}
-        />
-      </div>
+      {!hideSidebar && (
+        <div className={`sidebar-container ${mobileMenuOpen ? 'open' : ''}`}>
+          <Sidebar 
+            t={t} 
+            currentRoute={currentRoute} 
+            navigate={(route) => { navigate(route); setMobileMenuOpen(false); }} 
+            workflowStates={workflowStates}
+            aiEnabled={aiEnabled}
+          />
+        </div>
+      )}
 
       {/* Main Content Area */}
       <div className="main-area">

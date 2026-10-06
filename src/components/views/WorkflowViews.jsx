@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import { 
   FolderOpen, Loader2, AlertCircle, CheckCircle2, 
-  Upload, FileText, ArrowRight, Activity, Download, Settings, RefreshCw, AlertTriangle, Copy, Info
+  Upload, FileText, ArrowRight, Activity, Download, Settings, RefreshCw, AlertTriangle, Copy, Info, Sparkles
 } from 'lucide-react';
 import './WorkflowViews.css';
 import { formatBytes } from '../../utils/tenderUtils';
@@ -11,13 +11,50 @@ export function HomeView({ t, tenderData, navigate, workflowStates }) {
   if (!tenderData) {
     return (
       <div className="home-dashboard empty">
-        <h1>Good morning</h1>
-        <p className="home-subtitle">Tender Package Builder<br/>Prepare your tender documents, verify requirements, and generate a submission-ready package.</p>
-        
-        <div className="home-start-card">
-          <div className="home-start-icon"><FolderOpen size={40} /></div>
-          <h3>Start your tender package</h3>
-          <button className="btn-primary" onClick={() => navigate('setup')}>Setup Tender</button>
+        <div className="hero-section">
+          <h1>Welcome to Tender Package Builder</h1>
+          <p className="hero-subtitle">The smartest way to prepare, verify, and generate error-free tender submissions.</p>
+          <button className="btn-primary btn-xl mt-4 hero-btn" onClick={() => navigate('setup')}>
+            <FolderOpen size={20} /> Start New Tender Package
+          </button>
+        </div>
+
+        <div className="features-grid mt-5">
+          <div className="feature-card feature-blue">
+            <div className="f-icon"><Upload size={24} /></div>
+            <h3>1. Smart Uploads</h3>
+            <p>Drag and drop multiple PDF files. Automatic page counting and format validation.</p>
+          </div>
+          <div className="feature-card feature-green">
+            <div className="f-icon"><CheckCircle2 size={24} /></div>
+            <h3>2. Auto Matching</h3>
+            <p>Smart detection matches uploaded files to mandatory tender requirements.</p>
+          </div>
+          <div className="feature-card feature-amber">
+            <div className="f-icon"><AlertTriangle size={24} /></div>
+            <h3>3. Risk Detection</h3>
+            <p>Automatically flags missing files, duplicate contents, and expired documents.</p>
+          </div>
+          <div className="feature-card feature-purple">
+            <div className="f-icon"><Sparkles size={24} /></div>
+            <h3>4. AI Assistant</h3>
+            <p>Optional AI provides intelligent insights, suggestions, and explains blocking issues.</p>
+          </div>
+        </div>
+
+        <div className="how-it-works mt-5">
+          <h3>How it works</h3>
+          <div className="workflow-steps-visual">
+            <div className="w-step"><span>1</span>Setup</div>
+            <ArrowRight className="w-arrow" size={16} />
+            <div className="w-step"><span>2</span>Upload</div>
+            <ArrowRight className="w-arrow" size={16} />
+            <div className="w-step"><span>3</span>Analyze</div>
+            <ArrowRight className="w-arrow" size={16} />
+            <div className="w-step"><span>4</span>Review</div>
+            <ArrowRight className="w-arrow" size={16} />
+            <div className="w-step"><span>5</span>Generate</div>
+          </div>
         </div>
       </div>
     );

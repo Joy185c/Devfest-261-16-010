@@ -109,11 +109,10 @@ export default function AIAssistant({
                 <div style={{ padding: 12, background: '#fffbeb', borderRadius: 6, border: '1px solid #fde68a' }}>
                   <h4 style={{ margin: '0 0 8px 0', fontSize: 13, color: '#b45309' }}>Remaining Issues</h4>
                   <ul style={{ margin: 0, paddingLeft: 20, color: '#92400e', fontSize: 13 }}>
-                    {results.issues.map((iss, i) => (
-                      <li key={i}>
-                        {typeof iss === 'string' ? iss : (iss.issue || iss.description || iss.message || JSON.stringify(iss))}
-                      </li>
-                    ))}
+                    {results.issues.map((iss, i) => {
+                      const text = typeof iss === 'string' ? iss : (iss.reason || iss.issue || iss.description || iss.message || Object.values(iss)[0]);
+                      return <li key={i}>{typeof text === 'string' ? text : JSON.stringify(iss)}</li>;
+                    })}
                   </ul>
                 </div>
               )}

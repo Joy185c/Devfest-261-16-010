@@ -98,9 +98,7 @@ export async function generateTenderPackage(tender, requirements, matchMap, expi
     const footerText = `${tender.tender_id} | Page ${idx + 1} of ${totalPages}`;
     const textWidth = helveticaFont.widthOfTextAtSize(footerText, 8);
 
-    // White background strip
-    page.drawRectangle({ x: 0, y: 0, width: pw, height: 18, color: rgb(0.96, 0.97, 0.99) });
-    page.drawLine({ start: { x: 0, y: 18 }, end: { x: pw, y: 18 }, thickness: 0.5, color: rgb(0.82, 0.88, 0.97) });
+    // Text only - no background rectangle to ensure content is never obscured
     page.drawText(footerText, {
       x: (pw - textWidth) / 2, y: 5,
       font: helveticaFont, size: 8, color: rgb(0.35, 0.35, 0.45),
